@@ -339,8 +339,87 @@ def clear_deals_for_week(db: Session, year: int, week: int) -> int:
     return count
 
 
+# Ingredienser som aldrig ska räknas som relevant extrapris-matchning
+_TRIVIAL_INGREDIENTS = {
+    "salt", "peppar", "svartpeppar", "vitpeppar", "olja", "olivolja", "matolja",
+    "rapsolja", "solrosolja", "vatten", "smör", "matfett", "socker", "strösocker",
+    "citron", "citronsaft", "lime", "limesaft", "vitlök", "vitlöksklyftor",
+    "lök", "gul lök", "rödlök", "purjolök", "mjöl", "vetemjöl", "ättika",
+    "bakpulver", "bikarbonat", "jäst", "torrjäst", "buljong", "fond",
+    "ketchup", "senap", "soja", "sojasås", "honung", "sirap",
+}
+
+# Viktning: hur mycket en ingrediensgrupp räknas vid matchning
+_GROUP_WEIGHTS = {
+    "kött & fisk": 3,
+    "mejeri": 2,
+    "grönsaker": 1,
+    "frukt": 1,
+    "torrvaror": 1,
+    "kryddor": 0,
+    "övrigt": 1,
+    "": 1,
+}
+
+
+def _ingredient_matches_deal(ing_name: str, deal_name: str) -> bool:
+    """Smart matchning med ordgränser och blocklista."""
+    import re
+    ing_lower = ing_name.lower().strip()
+    # Använd hela deal-namnet (inte bara före komma) för ordmatchning
+    deal_lower = deal_name.lower().strip()
+
+    # Exakt match mot produktnamnet (före komma = namn, efter = märke/vikt)
+    deal_product = deal_lower.split(",")[0].strip()
+    if ing_lower == deal_product:
+        return True
+
+    # Matcha ingrediensen som eget ord
+    pattern = r'(?:^|[\s\-])' + re.escape(ing_lower) + r'(?:$|[\s\-,])'
+    if re.search(pattern, " " + deal_lower + " "):
+        return True
+
+    # Rensa hela deal-texten till ord
+    deal_words = re.split(r'[\s,\-]+', deal_lower)
+
+    # Kända falska suffix-matchningar
+    _false_suffix = {"ägg"}  # "ägg" i "pålägg"
+    # Kända falska prefix-matchningar
+    _false_prefix = {"socker", "smör"}  # "socker"->"sockerärtor", "smör"->"smörgåsmat"
+
+    for word in deal_words:
+        word = word.strip(".,;:")
+        if not word:
+            continue
+
+        if word == ing_lower:
+            return True
+
+        # Prefix: "kyckling" -> "kycklingbröst"
+        if word.startswith(ing_lower) and len(ing_lower) >= 4 and ing_lower not in _false_prefix:
+            return True
+
+        # Prefix med kort ord (3 tecken): bara matlagningssuffix
+        if word.startswith(ing_lower) and len(ing_lower) == 3:
+            rest = word[len(ing_lower):]
+            if rest.startswith("fil") or rest.startswith("bit") or rest.startswith("stek"):
+                return True
+
+        # Suffix: "ris" i "jasminris", "tomater" i "plommontomater"
+        if word.endswith(ing_lower) and len(word) > len(ing_lower) and len(ing_lower) >= 3:
+            if ing_lower not in _false_suffix:
+                return True
+
+    return False
+
+
+def _is_trivial_ingredient(name: str) -> bool:
+    """Kollar om en ingrediens är trivial (inte värd att matcha mot extrapris)."""
+    return name.lower().strip() in _TRIVIAL_INGREDIENTS
+
+
 def match_recipes_to_deals(db: Session) -> list[dict]:
-    """Matchar recept mot veckans erbjudanden. Returnerar recept rankade efter antal träffar."""
+    """Matchar recept mot veckans erbjudanden. Viktar efter ingredienstyp."""
     deals = get_current_deals(db)
     if not deals:
         return []
@@ -357,31 +436,37 @@ def match_recipes_to_deals(db: Session) -> list[dict]:
     matches = []
     for recipe in recipes:
         matched_ingredients = []
+        weighted_score = 0
         for ing in recipe.ingredients:
             ing_name = ing.name.lower()
+            if _is_trivial_ingredient(ing_name):
+                continue
             for deal_name in deal_names:
-                # Flexibel matchning: ingrediensnamn finns i deal eller tvärtom
-                if ing_name in deal_name or deal_name in ing_name:
+                if _ingredient_matches_deal(ing_name, deal_name):
+                    weight = _GROUP_WEIGHTS.get(ing.group_name or "", 1)
                     matched_ingredients.append({
                         "ingredient": ing.name,
                         "deal": deal_map[deal_name].product_name,
                         "price": deal_map[deal_name].price,
                         "original_price": deal_map[deal_name].original_price,
+                        "weight": weight,
                     })
+                    weighted_score += weight
                     break
 
         if matched_ingredients:
             matches.append({
                 "recipe": recipe,
                 "matched_count": len(matched_ingredients),
+                "weighted_score": weighted_score,
                 "total_ingredients": len(recipe.ingredients),
                 "matched_ingredients": matched_ingredients,
                 "match_pct": round(len(matched_ingredients) / max(len(recipe.ingredients), 1) * 100),
             })
 
-    # Sortera: flest matchade ingredienser först, sedan efter betyg
+    # Sortera: viktad poäng först, sedan betyg
     matches.sort(key=lambda m: (
-        m["matched_count"],
+        m["weighted_score"],
         m["recipe"].avg_rating or 0,
     ), reverse=True)
 
@@ -422,16 +507,12 @@ def get_ingredient_deal_map(db: Session) -> dict[str, dict]:
 
 
 def match_ingredient_to_deal(ing_name: str, deal_map: dict) -> dict | None:
-    """Matchar en ingrediens mot deal-mappen."""
-    ing_lower = ing_name.lower().strip()
+    """Matchar en ingrediens mot deal-mappen. Ignorerar triviala ingredienser."""
+    if _is_trivial_ingredient(ing_name):
+        return None
 
-    # Exakt match
-    if ing_lower in deal_map:
-        return deal_map[ing_lower]
-
-    # Ingrediensnamnet finns i ett deal-namn
     for key, deal in deal_map.items():
-        if ing_lower in key or key in ing_lower:
+        if _ingredient_matches_deal(ing_name, key):
             return deal
 
     return None
