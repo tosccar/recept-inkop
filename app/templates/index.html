@@ -12,13 +12,21 @@
            hx-include=".filter-control"
            class="search-input">
     <input type="hidden" name="category" id="category-filter" class="filter-control" value="{{ selected_category }}">
+    <input type="hidden" name="tag" id="tag-filter" class="filter-control" value="{{ selected_tag }}">
+    <!-- category och tag kan vara kommaseparerade för flerval -->
     <input type="hidden" name="sort" id="sort-filter" class="filter-control" value="{{ selected_sort }}">
     <div class="quick-filters">
-        <button type="button" class="qf-btn {% if not selected_category %}active{% endif %}"
+        <button type="button" class="qf-btn qf-cat-alla {% if not selected_category %}active{% endif %}"
                 onclick="filterCategory('')">Alla</button>
         {% for cat in categories %}
-        <button type="button" class="qf-btn {% if selected_category == cat %}active{% endif %}"
+        <button type="button" class="qf-btn qf-cat {% if cat in (selected_category or '').split(',') %}active{% endif %}"
                 onclick="filterCategory('{{ cat }}')">{{ cat|capitalize }}</button>
+        {% endfor %}
+    </div>
+    <div class="quick-filters tag-filters">
+        {% for t in predefined_tags %}
+        <button type="button" class="qf-btn qf-tag {% if selected_tag == t.id %}active{% endif %}"
+                onclick="filterTag('{{ t.id }}')">{{ t.label }}</button>
         {% endfor %}
     </div>
 </div>
@@ -29,11 +37,11 @@
 
 <script>
 function doSearch() {
-    const searchEl = document.querySelector('[name="search"]');
-    const search = searchEl.value;
+    const search = document.querySelector('[name="search"]').value;
     const category = document.getElementById('category-filter').value;
+    const tag = document.getElementById('tag-filter').value;
     const sort = document.getElementById('sort-filter').value;
-    const url = `/htmx/recipes?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sort)}`;
+    const url = `/htmx/recipes?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&tag=${encodeURIComponent(tag)}&sort=${encodeURIComponent(sort)}`;
     htmx.ajax('GET', url, '#recipe-list');
 }
 
@@ -55,14 +63,47 @@ function sortBy(column) {
     doSearch();
 }
 
-function filterCategory(cat) {
-    const input = document.getElementById('category-filter');
-    input.value = cat;
-    document.querySelectorAll('.qf-btn').forEach(b => b.classList.remove('active'));
-    const clicked = event?.target?.closest?.('.qf-btn');
-    if (clicked) clicked.classList.add('active');
-    else document.querySelector('.qf-btn')?.classList.add('active');
+function toggleFilter(inputId, value, btnClass) {
+    const input = document.getElementById(inputId);
+    let values = input.value ? input.value.split(',') : [];
+    const idx = values.indexOf(value);
+    if (idx >= 0) {
+        values.splice(idx, 1);
+    } else {
+        values.push(value);
+    }
+    input.value = values.join(',');
+
+    // Uppdatera knapp-states
+    const btn = event?.target?.closest?.('.' + btnClass);
+    if (btn) btn.classList.toggle('active');
+
+    // Hantera "Alla"-knappen för kategorier
+    if (inputId === 'category-filter') {
+        const allaBtn = document.querySelector('.qf-cat-alla');
+        if (values.length === 0) {
+            allaBtn?.classList.add('active');
+        } else {
+            allaBtn?.classList.remove('active');
+        }
+    }
     doSearch();
+}
+
+function filterTag(tag) {
+    toggleFilter('tag-filter', tag, 'qf-tag');
+}
+
+function filterCategory(cat) {
+    if (cat === '') {
+        // "Alla" klickad — rensa alla kategorier
+        document.getElementById('category-filter').value = '';
+        document.querySelectorAll('.qf-cat').forEach(b => b.classList.remove('active'));
+        document.querySelector('.qf-cat-alla')?.classList.add('active');
+        doSearch();
+        return;
+    }
+    toggleFilter('category-filter', cat, 'qf-cat');
 }
 </script>
 {% endblock %}

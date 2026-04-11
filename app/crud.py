@@ -25,12 +25,20 @@ def get_recipes(db: Session, search: str = "", category: str = "",
         )
 
     if category:
-        query = query.filter(Recipe.category == category)
+        cats = [c.strip() for c in category.split(",") if c.strip()]
+        if len(cats) == 1:
+            query = query.filter(Recipe.category == cats[0])
+        elif cats:
+            query = query.filter(Recipe.category.in_(cats))
 
     if tag:
-        if not search:  # undvik dubbel outerjoin
+        tags = [t.strip() for t in tag.split(",") if t.strip()]
+        if not search:
             query = query.outerjoin(Tag)
-        query = query.filter(Tag.tag == tag)
+        if len(tags) == 1:
+            query = query.filter(Tag.tag == tags[0])
+        elif tags:
+            query = query.filter(Tag.tag.in_(tags))
 
     # Sortering
     sort_map = {
