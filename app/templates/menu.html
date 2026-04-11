@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Veckomeny v{{ week }} – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Veckomeny v{{ week }}, {{ year }}</h1>
+<p class="subtitle">5 receptförslag baserade på <a href="/deals">veckans erbjudanden</a></p>
+
+<div class="menu-actions">
+    {% if slots %}
+    <form method="post" action="/menu/generate" class="inline-form">
+        <button type="submit" class="btn btn-secondary">Generera ny meny</button>
+    </form>
+    <a href="/shopping-list" class="btn btn-primary">Visa inköpslista</a>
+    {% endif %}
+</div>
+
+{% if slots %}
+<div class="menu-grid">
+    {% for slot in slots %}
+    {% include "_menu_card.html" %}
+    {% endfor %}
+</div>
+{% elif not has_recipes %}
+<div class="empty-state">
+    <p>Du har inga sparade recept ännu.</p>
+    <p><a href="/add">Lägg till recept</a> för att börja bygga din veckomeny.</p>
+</div>
+{% elif not has_deals %}
+<div class="empty-state">
+    <p>Inga erbjudanden inlästa denna vecka.</p>
+    <p>Gå till <a href="/deals">Erbjudanden</a> och hämta veckans extrapriser först.</p>
+    <form method="post" action="/menu/generate" style="margin-top: 1rem;">
+        <button type="submit" class="btn btn-primary">Generera meny ändå</button>
+    </form>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Ingen veckomeny genererad ännu.</p>
+    <form method="post" action="/menu/generate" style="margin-top: 1rem;">
+        <button type="submit" class="btn btn-primary">Generera veckomeny</button>
+    </form>
+</div>
+{% endif %}
+
+<script>
+function adjustMenuServings(btn, delta) {
+    const form = btn.closest('form');
+    const input = form.querySelector('input[name="servings"]');
+    let val = parseInt(input.value) + delta;
+    if (val < 1) val = 1;
+    if (val > 20) val = 20;
+    input.value = val;
+    htmx.trigger(form, 'submit');
+}
+</script>
+{% endblock %}

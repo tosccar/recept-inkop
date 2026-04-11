@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+{% block title %}Lägg till recept – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Lägg till recept</h1>
+
+<!-- URL-import -->
+<div class="import-section">
+    <h2>Importera från länk</h2>
+    <div class="import-row">
+        <input type="url" id="import-url" placeholder="Klistra in receptlänk (ICA, Arla, Köket, Coop...)" class="import-input">
+        <button type="button" id="import-btn" class="btn btn-primary">Hämta recept</button>
+    </div>
+    <div id="import-status" class="import-status"></div>
+</div>
+
+<!-- Bild-import -->
+<div class="import-section">
+    <h2>Importera från bild eller foto</h2>
+    <div class="image-dropzone image-dropzone-import" id="import-dropzone"
+         ondragover="event.preventDefault(); this.classList.add('dragover')"
+         ondragleave="this.classList.remove('dragover')"
+         ondrop="handleImportDrop(event)">
+        <div id="import-image-preview"></div>
+        <span class="dropzone-text" id="import-dropzone-text">Dra en bild hit, eller</span>
+        <label class="btn btn-primary dropzone-btn">
+            Välj bild / Ta foto
+            <input type="file" accept="image/*" capture="environment" hidden
+                   onchange="handleImportSelect(this)">
+        </label>
+    </div>
+    <!-- Steg 2: OCR-granskning -->
+    <div id="ocr-review" class="ocr-review" style="display:none">
+        <label>Inläst text från bilden — granska och redigera vid behov:</label>
+        <textarea id="ocr-text" rows="10"></textarea>
+        <button type="button" class="btn btn-primary" id="ocr-confirm-btn"
+                onclick="confirmOcrText()">Tolka som recept</button>
+    </div>
+    <div id="import-image-status" class="import-status"></div>
+</div>
+
+<hr class="divider">
+
+<form method="post" action="/add" class="recipe-form" id="recipe-form">
+    <div class="form-group">
+        <label for="name">Receptnamn *</label>
+        <input type="text" id="name" name="name" required placeholder="T.ex. Laxpasta med citron">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="category">Kategori</label>
+            <select id="category" name="category">
+                <option value="">Välj kategori...</option>
+                <option value="fisk">Fisk</option>
+                <option value="färs">Färs</option>
+                <option value="korv">Korv</option>
+                <option value="kött">Kött</option>
+                <option value="kyckling">Kyckling</option>
+                <option value="vegetariskt">Vegetariskt</option>
+                <option value="pasta">Pasta</option>
+                <option value="soppa">Soppa</option>
+                <option value="sallad">Sallad</option>
+                <option value="dryck">Dryck</option>
+                <option value="förrätt">Förrätt</option>
+                <option value="snacks">Snacks</option>
+                <option value="efterrätt">Efterrätt</option>
+                <option value="kakor/tårtor">Kakor/tårtor</option>
+                <option value="övrigt">Övrigt</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="servings">Portioner</label>
+            <input type="number" id="servings" name="servings" value="4" min="1" max="20">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="source_type">Typ av källa</label>
+            <select id="source_type" name="source_type">
+                <option value="url">Webblänk</option>
+                <option value="pdf">PDF</option>
+                <option value="docx">Word-dokument</option>
+                <option value="text">Fritext</option>
+            </select>
+        </div>
+        <div class="form-group flex-grow">
+            <label for="source_link">Länk / sökväg</label>
+            <input type="text" id="source_link" name="source_link" placeholder="https://... eller filsökväg">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Taggar</label>
+        <div class="tag-checkboxes" id="tag-checkboxes">
+            {% for tag in predefined_tags %}
+            <label class="tag-checkbox">
+                <input type="checkbox" name="tags" value="{{ tag.id }}">
+                <span class="tag-label">{{ tag.label }}</span>
+                <span class="tag-desc">{{ tag.description }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Ingredienser</label>
+        <div id="ingredients-list">
+            <div class="ingredient-row">
+                <input type="text" placeholder="Ingrediens" class="ing-name">
+                <input type="text" placeholder="Mängd" class="ing-qty">
+                <select class="ing-group">
+                    <option value="">Grupp...</option>
+                    <option value="kött & fisk">Kött & fisk</option>
+                    <option value="mejeri">Mejeri</option>
+                    <option value="grönsaker">Grönsaker</option>
+                    <option value="frukt">Frukt</option>
+                    <option value="torrvaror">Torrvaror</option>
+                    <option value="kryddor">Kryddor</option>
+                    <option value="övrigt">Övrigt</option>
+                </select>
+                <button type="button" class="btn-icon remove-ing" title="Ta bort">&times;</button>
+            </div>
+        </div>
+        <button type="button" class="btn btn-secondary" id="add-ingredient">+ Ingrediens</button>
+    </div>
+
+    <div class="form-group">
+        <label for="notes">Anteckningar</label>
+        <textarea id="notes" name="notes" rows="3" placeholder="Tips, variationer..."></textarea>
+    </div>
+
+    <input type="hidden" name="ingredients_json" id="ingredients_json">
+    <input type="hidden" name="pdf_path" id="pdf_path">
+    <input type="hidden" name="image_path" id="image_path">
+
+    <div class="form-actions">
+        <a href="/" class="btn btn-secondary">Avbryt</a>
+        <button type="submit" class="btn btn-primary">Spara recept</button>
+    </div>
+</form>
+
+<script>
+// --- URL-import ---
+document.getElementById('import-btn').addEventListener('click', async () => {
+    const url = document.getElementById('import-url').value.trim();
+    if (!url) return;
+
+    const status = document.getElementById('import-status');
+    const btn = document.getElementById('import-btn');
+    btn.disabled = true;
+    btn.textContent = 'Hämtar...';
+    status.textContent = '';
+    status.className = 'import-status';
+
+    try {
+        const formData = new FormData();
+        formData.append('url', url);
+        const resp = await fetch('/api/extract-url', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            status.textContent = data.error || 'Kunde inte hämta receptet.';
+            status.className = 'import-status error';
+            return;
+        }
+
+        // Fyll i formuläret
+        document.getElementById('name').value = data.name || '';
+        document.getElementById('source_link').value = data.source_url || url;
+        document.getElementById('pdf_path').value = data.pdf_path || '';
+        document.getElementById('source_type').value = 'url';
+        if (data.servings) document.getElementById('servings').value = data.servings;
+        // Checka taggar
+        document.querySelectorAll('#tag-checkboxes input[type=checkbox]').forEach(cb => {
+            cb.checked = (data.tags || []).includes(cb.value);
+        });
+
+        // Sätt kategori
+        if (data.category) {
+            const catSelect = document.getElementById('category');
+            for (let opt of catSelect.options) {
+                if (opt.value === data.category) { opt.selected = true; break; }
+            }
+        }
+
+        // Fyll i ingredienser
+        const list = document.getElementById('ingredients-list');
+        list.innerHTML = '';
+        const ingredients = data.ingredients || [];
+        if (ingredients.length === 0) ingredients.push({name: '', quantity: '', group_name: ''});
+
+        ingredients.forEach(ing => {
+            const row = document.createElement('div');
+            row.className = 'ingredient-row';
+            row.innerHTML = `
+                <input type="text" placeholder="Ingrediens" class="ing-name" value="${escapeHtml(ing.name || '')}">
+                <input type="text" placeholder="Mängd" class="ing-qty" value="${escapeHtml(ing.quantity || '')}">
+                <select class="ing-group">
+                    <option value="">Grupp...</option>
+                    <option value="kött & fisk" ${ing.group_name === 'kött & fisk' ? 'selected' : ''}>Kött & fisk</option>
+                    <option value="mejeri" ${ing.group_name === 'mejeri' ? 'selected' : ''}>Mejeri</option>
+                    <option value="grönsaker" ${ing.group_name === 'grönsaker' ? 'selected' : ''}>Grönsaker</option>
+                    <option value="frukt" ${ing.group_name === 'frukt' ? 'selected' : ''}>Frukt</option>
+                    <option value="torrvaror" ${ing.group_name === 'torrvaror' ? 'selected' : ''}>Torrvaror</option>
+                    <option value="kryddor" ${ing.group_name === 'kryddor' ? 'selected' : ''}>Kryddor</option>
+                    <option value="övrigt" ${ing.group_name === 'övrigt' ? 'selected' : ''}>Övrigt</option>
+                </select>
+                <button type="button" class="btn-icon remove-ing" title="Ta bort">&times;</button>
+            `;
+            list.appendChild(row);
+        });
+
+        // Kolla duplett
+        const dupResp = await fetch(`/api/check-duplicate?name=${encodeURIComponent(data.name)}&url=${encodeURIComponent(url)}`);
+        const dupData = await dupResp.json();
+        if (dupData.duplicates && dupData.duplicates.length > 0) {
+            const d = dupData.duplicates[0];
+            status.innerHTML = `<strong>OBS!</strong> Receptet "<a href="/recipe/${d.id}">${escapeHtml(d.name)}</a>" finns redan. Du kan fortfarande spara om du vill.`;
+            status.className = 'import-status warning';
+        } else {
+            status.textContent = `Hämtade "${data.name}" med ${ingredients.length} ingredienser. Granska och spara!`;
+            status.className = 'import-status success';
+        }
+
+    } catch (e) {
+        status.textContent = 'Fel vid hämtning: ' + e.message;
+        status.className = 'import-status error';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Hämta recept';
+    }
+});
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// --- Ingredienser: lägg till / ta bort ---
+document.getElementById('add-ingredient').addEventListener('click', () => {
+    const list = document.getElementById('ingredients-list');
+    const row = list.querySelector('.ingredient-row').cloneNode(true);
+    row.querySelectorAll('input').forEach(i => i.value = '');
+    row.querySelector('select').selectedIndex = 0;
+    list.appendChild(row);
+});
+
+document.getElementById('ingredients-list').addEventListener('click', e => {
+    if (e.target.classList.contains('remove-ing')) {
+        const rows = document.querySelectorAll('.ingredient-row');
+        if (rows.length > 1) e.target.closest('.ingredient-row').remove();
+    }
+});
+
+// --- Submit: serialisera ingredienser + duplettkontroll ---
+document.getElementById('recipe-form').addEventListener('submit', async (e) => {
+    const rows = document.querySelectorAll('.ingredient-row');
+    const ingredients = [];
+    rows.forEach(row => {
+        const name = row.querySelector('.ing-name').value.trim();
+        if (name) {
+            ingredients.push({
+                name: name,
+                quantity: row.querySelector('.ing-qty').value.trim(),
+                group_name: row.querySelector('.ing-group').value,
+            });
+        }
+    });
+    document.getElementById('ingredients_json').value = JSON.stringify(ingredients);
+
+    // Vänta på bilduppladdning om pågående
+    if (document.getElementById('image-dropzone').classList.contains('uploading')) {
+        e.preventDefault();
+        return;
+    }
+
+    // Duplettkontroll (bara om inte redan bekräftat)
+    if (!document.getElementById('recipe-form').dataset.dupChecked) {
+        e.preventDefault();
+        const recipeName = document.getElementById('name').value.trim();
+        const sourceLink = document.getElementById('source_link').value.trim();
+        const resp = await fetch(`/api/check-duplicate?name=${encodeURIComponent(recipeName)}&url=${encodeURIComponent(sourceLink)}`);
+        const data = await resp.json();
+        if (data.duplicates && data.duplicates.length > 0) {
+            const d = data.duplicates[0];
+            if (!confirm(`Receptet "${d.name}" finns redan i databasen. Vill du spara ändå?`)) {
+                return;
+            }
+        }
+        document.getElementById('recipe-form').dataset.dupChecked = 'true';
+        document.getElementById('recipe-form').submit();
+    }
+});
+
+// --- Fyll i formulär från receptdata ---
+function fillFormFromData(data) {
+    if (_savedImagePath) document.getElementById('image_path').value = _savedImagePath;
+    if (data.image_path) document.getElementById('image_path').value = data.image_path;
+    document.getElementById('name').value = data.name || '';
+    document.getElementById('source_type').value = 'text';
+    document.getElementById('source_link').value = '';
+    if (data.servings) document.getElementById('servings').value = data.servings;
+
+    document.querySelectorAll('#tag-checkboxes input[type=checkbox]').forEach(cb => {
+        cb.checked = (data.tags || []).includes(cb.value);
+    });
+
+    if (data.category) {
+        const catSelect = document.getElementById('category');
+        for (let opt of catSelect.options) {
+            if (opt.value === data.category) { opt.selected = true; break; }
+        }
+    }
+
+    const list = document.getElementById('ingredients-list');
+    list.innerHTML = '';
+    const ingredients = data.ingredients || [];
+    if (ingredients.length === 0) ingredients.push({name: '', quantity: '', group_name: ''});
+
+    ingredients.forEach(ing => {
+        const row = document.createElement('div');
+        row.className = 'ingredient-row';
+        row.innerHTML = `
+            <input type="text" placeholder="Ingrediens" class="ing-name" value="${escapeHtml(ing.name || '')}">
+            <input type="text" placeholder="Mängd" class="ing-qty" value="${escapeHtml(ing.quantity || '')}">
+            <select class="ing-group">
+                <option value="">Grupp...</option>
+                <option value="kött & fisk" ${ing.group_name === 'kött & fisk' ? 'selected' : ''}>Kött & fisk</option>
+                <option value="mejeri" ${ing.group_name === 'mejeri' ? 'selected' : ''}>Mejeri</option>
+                <option value="grönsaker" ${ing.group_name === 'grönsaker' ? 'selected' : ''}>Grönsaker</option>
+                <option value="frukt" ${ing.group_name === 'frukt' ? 'selected' : ''}>Frukt</option>
+                <option value="torrvaror" ${ing.group_name === 'torrvaror' ? 'selected' : ''}>Torrvaror</option>
+                <option value="kryddor" ${ing.group_name === 'kryddor' ? 'selected' : ''}>Kryddor</option>
+                <option value="övrigt" ${ing.group_name === 'övrigt' ? 'selected' : ''}>Övrigt</option>
+            </select>
+            <button type="button" class="btn-icon remove-ing" title="Ta bort">&times;</button>
+        `;
+        list.appendChild(row);
+    });
+
+    let notesText = '';
+    if (data.instructions) notesText += data.instructions;
+    if (data.notes) notesText += (notesText ? '\n\n' : '') + data.notes;
+    if (notesText) document.getElementById('notes').value = notesText;
+}
+
+// --- Bildimport: Steg 1 = OCR, Steg 2 = granska + strukturera ---
+let _savedImagePath = '';
+
+async function ocrRecipeImage(file) {
+    const dropzone = document.getElementById('import-dropzone');
+    const text = document.getElementById('import-dropzone-text');
+    const status = document.getElementById('import-image-status');
+    const preview = document.getElementById('import-image-preview');
+    const review = document.getElementById('ocr-review');
+    dropzone.classList.add('uploading');
+    text.textContent = 'Analyserar recept...';
+    status.textContent = '';
+    status.className = 'import-status';
+    review.style.display = 'none';
+
+    // Visa forhandsvisning
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        preview.innerHTML = `<img src="${e.target.result}" class="preview-img">`;
+    };
+    reader.readAsDataURL(file);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const resp = await fetch('/api/extract-image', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            status.textContent = data.error || 'Kunde inte läsa bilden.';
+            status.className = 'import-status error';
+            text.textContent = 'Försök med en annan bild';
+            dropzone.classList.remove('uploading');
+            return;
+        }
+
+        _savedImagePath = data.image_path || '';
+
+        // Claude lyckades direkt?
+        if (data.name && !data.needs_review) {
+            fillFormFromData(data);
+            text.textContent = 'Recept extraherat!';
+            status.textContent = `"${data.name}" med ${(data.ingredients||[]).length} ingredienser. Granska och spara!`;
+            status.className = 'import-status success';
+            dropzone.classList.remove('uploading', 'dragover');
+            return;
+        }
+
+        // Fallback: visa OCR-text för granskning
+        document.getElementById('ocr-text').value = data.ocr_text || '';
+        review.style.display = 'block';
+        text.textContent = 'Text inläst (manuell granskning)';
+        status.textContent = 'Claude kunde inte tolka bilden direkt. Granska texten och klicka "Tolka som recept".';
+        status.className = 'import-status warning';
+
+    } catch (e) {
+        status.textContent = 'Fel: ' + e.message;
+        status.className = 'import-status error';
+        text.textContent = 'Försök igen';
+    }
+    dropzone.classList.remove('uploading', 'dragover');
+}
+
+async function confirmOcrText() {
+    const btn = document.getElementById('ocr-confirm-btn');
+    const status = document.getElementById('import-image-status');
+    const ocrText = document.getElementById('ocr-text').value.trim();
+
+    if (!ocrText) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Tolkar...';
+    status.textContent = '';
+
+    const formData = new FormData();
+    formData.append('ocr_text', ocrText);
+
+    try {
+        const resp = await fetch('/api/structure-recipe', { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            status.textContent = data.error || 'Kunde inte tolka texten.';
+            status.className = 'import-status error';
+            btn.disabled = false;
+            btn.textContent = 'Tolka som recept';
+            return;
+        }
+
+        fillFormFromData(data);
+        status.textContent = `"${data.name}" med ${(data.ingredients||[]).length} ingredienser. Granska och spara!`;
+        status.className = 'import-status success';
+        document.getElementById('ocr-review').style.display = 'none';
+
+    } catch (e) {
+        status.textContent = 'Fel: ' + e.message;
+        status.className = 'import-status error';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Tolka som recept';
+}
+
+function handleImportDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('dragover');
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) ocrRecipeImage(file);
+}
+
+function handleImportSelect(input) {
+    const file = input.files[0];
+    if (file) ocrRecipeImage(file);
+    input.value = '';
+}
+
+
+</script>
+{% endblock %}

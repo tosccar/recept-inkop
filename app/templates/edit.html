@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Redigera {{ recipe.name }} – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Redigera recept</h1>
+
+<form method="post" action="/recipe/{{ recipe.id }}/edit" class="recipe-form" id="recipe-form">
+    <div class="form-group">
+        <label for="name">Receptnamn *</label>
+        <input type="text" id="name" name="name" required value="{{ recipe.name }}">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="category">Kategori</label>
+            <select id="category" name="category">
+                <option value="">Välj kategori...</option>
+                {% for cat in ['fisk', 'färs', 'korv', 'kött', 'kyckling', 'vegetariskt', 'pasta', 'soppa', 'sallad', 'dryck', 'efterrätt', 'förrätt', 'kakor/tårtor', 'snacks', 'övrigt'] %}
+                <option value="{{ cat }}" {% if recipe.category == cat %}selected{% endif %}>{{ cat|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="servings">Portioner</label>
+            <input type="number" id="servings" name="servings" value="{{ recipe.servings }}" min="1" max="20">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="source_type">Typ av källa</label>
+            <select id="source_type" name="source_type">
+                {% for st in ['url', 'pdf', 'docx', 'text'] %}
+                <option value="{{ st }}" {% if recipe.source_type == st %}selected{% endif %}>
+                    {% if st == 'url' %}Webblänk{% elif st == 'pdf' %}PDF{% elif st == 'docx' %}Word-dokument{% else %}Fritext{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group flex-grow">
+            <label for="source_link">Länk / sökväg</label>
+            <input type="text" id="source_link" name="source_link" value="{{ recipe.source_link or '' }}">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Taggar</label>
+        <div class="tag-checkboxes">
+            {% set current_tags = recipe.tags|map(attribute='tag')|list %}
+            {% for tag in predefined_tags %}
+            <label class="tag-checkbox">
+                <input type="checkbox" name="tags" value="{{ tag.id }}"
+                       {% if tag.id in current_tags %}checked{% endif %}>
+                <span class="tag-label">{{ tag.label }}</span>
+                <span class="tag-desc">{{ tag.description }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Ingredienser</label>
+        <div id="ingredients-list">
+            {% for ing in recipe.ingredients %}
+            <div class="ingredient-row">
+                <input type="text" placeholder="Ingrediens" class="ing-name" value="{{ ing.name }}">
+                <input type="text" placeholder="Mängd" class="ing-qty" value="{{ ing.quantity or '' }}">
+                <select class="ing-group">
+                    <option value="">Grupp...</option>
+                    {% for g in ['kött & fisk', 'mejeri', 'grönsaker', 'frukt', 'torrvaror', 'kryddor', 'övrigt'] %}
+                    <option value="{{ g }}" {% if ing.group_name == g %}selected{% endif %}>{{ g|capitalize }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" class="btn-icon remove-ing" title="Ta bort">&times;</button>
+            </div>
+            {% endfor %}
+            {% if not recipe.ingredients %}
+            <div class="ingredient-row">
+                <input type="text" placeholder="Ingrediens" class="ing-name">
+                <input type="text" placeholder="Mängd" class="ing-qty">
+                <select class="ing-group">
+                    <option value="">Grupp...</option>
+                    <option value="kött & fisk">Kött & fisk</option>
+                    <option value="mejeri">Mejeri</option>
+                    <option value="grönsaker">Grönsaker</option>
+                    <option value="frukt">Frukt</option>
+                    <option value="torrvaror">Torrvaror</option>
+                    <option value="kryddor">Kryddor</option>
+                    <option value="övrigt">Övrigt</option>
+                </select>
+                <button type="button" class="btn-icon remove-ing" title="Ta bort">&times;</button>
+            </div>
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-secondary" id="add-ingredient">+ Ingrediens</button>
+    </div>
+
+    <div class="form-group">
+        <label>Receptbild</label>
+        <div class="image-dropzone" id="image-dropzone"
+             ondragover="event.preventDefault(); this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="handleEditImageDrop(event)">
+            <div id="image-preview">
+                {% if recipe.image_path %}
+                <img src="{{ recipe.image_path }}" alt="{{ recipe.name }}" class="preview-img">
+                {% endif %}
+            </div>
+            <span class="dropzone-text" id="dropzone-text">
+                {% if recipe.image_path %}Dra en ny bild hit för att byta, eller{% else %}Dra en bild hit eller{% endif %}
+            </span>
+            <label class="btn btn-secondary btn-sm dropzone-btn">
+                Välj bild / Ta foto
+                <input type="file" accept="image/*" capture="environment" hidden
+                       onchange="handleEditImageSelect(this)">
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="notes">Anteckningar</label>
+        <textarea id="notes" name="notes" rows="3">{{ recipe.notes or '' }}</textarea>
+    </div>
+
+    <input type="hidden" name="ingredients_json" id="ingredients_json">
+
+    <div class="form-actions">
+        <a href="/recipe/{{ recipe.id }}" class="btn btn-secondary">Avbryt</a>
+        <button type="submit" class="btn btn-primary">Spara ändringar</button>
+    </div>
+</form>
+
+<script>
+document.getElementById('add-ingredient').addEventListener('click', () => {
+    const list = document.getElementById('ingredients-list');
+    const row = list.querySelector('.ingredient-row').cloneNode(true);
+    row.querySelectorAll('input').forEach(i => i.value = '');
+    row.querySelector('select').selectedIndex = 0;
+    list.appendChild(row);
+});
+
+document.getElementById('ingredients-list').addEventListener('click', e => {
+    if (e.target.classList.contains('remove-ing')) {
+        const rows = document.querySelectorAll('.ingredient-row');
+        if (rows.length > 1) e.target.closest('.ingredient-row').remove();
+    }
+});
+
+document.getElementById('recipe-form').addEventListener('submit', () => {
+    const rows = document.querySelectorAll('.ingredient-row');
+    const ingredients = [];
+    rows.forEach(row => {
+        const name = row.querySelector('.ing-name').value.trim();
+        if (name) {
+            ingredients.push({
+                name: name,
+                quantity: row.querySelector('.ing-qty').value.trim(),
+                group_name: row.querySelector('.ing-group').value,
+            });
+        }
+    });
+    document.getElementById('ingredients_json').value = JSON.stringify(ingredients);
+});
+
+// --- Bilduppladdning (redigera) ---
+async function uploadEditImage(file) {
+    const dropzone = document.getElementById('image-dropzone');
+    const text = document.getElementById('dropzone-text');
+    dropzone.classList.add('uploading');
+    text.textContent = 'Laddar upp...';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const resp = await fetch('/api/upload-image/{{ recipe.id }}', {
+            method: 'POST', body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            document.getElementById('image-preview').innerHTML =
+                `<img src="${data.image_url}" alt="Receptbild" class="preview-img">`;
+            text.textContent = 'Bild uppdaterad!';
+        } else {
+            text.textContent = data.error || 'Uppladdning misslyckades';
+        }
+    } catch (e) {
+        text.textContent = 'Fel: ' + e.message;
+    }
+    dropzone.classList.remove('uploading', 'dragover');
+}
+
+function handleEditImageDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('dragover');
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) uploadEditImage(file);
+}
+
+function handleEditImageSelect(input) {
+    const file = input.files[0];
+    if (file) uploadEditImage(file);
+    input.value = '';
+}
+</script>
+{% endblock %}

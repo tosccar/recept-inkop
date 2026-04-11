@@ -1,0 +1,73 @@
+<div class="menu-card" id="menu-slot-{{ slot.id }}">
+    <div class="menu-card-header">
+        <span class="menu-slot-number">{{ slot.slot_number }}</span>
+        <div class="menu-card-title">
+            <h3><a href="/recipe/{{ slot.recipe.id }}">{{ slot.recipe.name }}</a></h3>
+            {% if slot.recipe.category %}
+            <span class="badge category">{{ slot.recipe.category }}</span>
+            {% endif %}
+            {% if slot.recipe.avg_rating %}
+            <span class="stars-small">
+                {% for i in range(1, 6) %}
+                <span class="star {% if i <= slot.recipe.avg_rating|round %}filled{% endif %}">&#9733;</span>
+                {% endfor %}
+            </span>
+            {% endif %}
+        </div>
+        <button class="btn-reroll"
+                hx-post="/htmx/menu/reroll/{{ slot.id }}"
+                hx-target="#menu-slot-{{ slot.id }}"
+                hx-swap="outerHTML"
+                title="Slumpa nytt recept">
+            &#8635;
+        </button>
+    </div>
+
+    {% if slot.recipe.ingredients %}
+    <div class="menu-card-ingredients">
+        <span class="ingredient-toggle" onclick="this.parentElement.classList.toggle('open')">
+            {{ slot.recipe.ingredients|length }} ingredienser &#9662;
+        </span>
+        <ul class="ingredient-list">
+            {% for ing in slot.recipe.ingredients %}
+            {% set deal = slot_deals.get(ing.id) if slot_deals else none %}
+            <li{% if deal %} class="has-deal"{% endif %}>
+                {% if ing.quantity %}<span class="ing-qty-text">{{ ing.quantity }}</span>{% endif %}
+                {{ ing.name }}
+                {% if deal %}
+                <span class="ing-deal-info">
+                    {{ deal.deal }} <span class="deal-price">{{ deal.price }}</span>
+                </span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="menu-card-actions">
+        <form class="menu-servings-form"
+              hx-post="/htmx/menu/servings/{{ slot.id }}"
+              hx-target="#menu-slot-{{ slot.id }}"
+              hx-swap="outerHTML">
+            <button type="button" class="btn-portion"
+                    onclick="adjustMenuServings(this, -1)">-</button>
+            <input type="number" name="servings" value="{{ slot.servings }}"
+                   min="1" max="20" class="servings-input" readonly>
+            <span class="portions-label">port.</span>
+            <button type="button" class="btn-portion"
+                    onclick="adjustMenuServings(this, 1)">+</button>
+        </form>
+
+        {% if just_added %}
+        <span class="added-badge">Tillagd!</span>
+        {% else %}
+        <button class="btn btn-primary btn-add-list"
+                hx-post="/htmx/menu/add-to-list/{{ slot.id }}"
+                hx-target="#menu-slot-{{ slot.id }}"
+                hx-swap="outerHTML">
+            + Inköpslista
+        </button>
+        {% endif %}
+    </div>
+</div>

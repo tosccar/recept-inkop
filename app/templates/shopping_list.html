@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Inköpslista v{{ week }} – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Inköpslista v{{ week }}, {{ year }}</h1>
+
+{% if request.query_params.get('shared') %}
+<div class="sync-success">Listan kopierad!</div>
+{% endif %}
+
+<div class="shopping-actions">
+    <a href="/menu" class="btn btn-secondary">Tillbaka till menyn</a>
+    {% if total_items > 0 %}
+    <span class="shopping-progress">{{ checked_items }}/{{ total_items }} avbockade</span>
+    <button type="button" class="btn btn-primary" id="copy-btn" onclick="copyList()">
+        Kopiera listan
+    </button>
+    <a href="https://keep.google.com" target="_blank" rel="noopener" class="btn btn-secondary">
+        Öppna Keep
+    </a>
+    <form method="post" action="/shopping-list/clear" class="inline-form">
+        <button type="submit" class="btn btn-danger"
+                onclick="return confirm('Rensa hela inköpslistan?')">Rensa lista</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if groups %}
+{% for recipe_name, items in groups.items() %}
+<div class="shopping-group">
+    <h3 class="shopping-group-title">{{ recipe_name }}</h3>
+    <div class="shopping-items">
+        {% for item in items %}
+        {% include "_shopping_item.html" %}
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+    <p>Inköpslistan är tom.</p>
+    <p>Gå till <a href="/menu">Veckomenyn</a> och lägg till recept.</p>
+</div>
+{% endif %}
+
+<script>
+function buildListText() {
+    const groups = document.querySelectorAll('.shopping-group');
+    let text = '';
+    groups.forEach(group => {
+        group.querySelectorAll('.shopping-item').forEach(item => {
+            if (!item.classList.contains('checked')) return;
+            const qty = item.querySelector('.item-quantity')?.textContent.trim() || '';
+            const name = item.querySelector('.item-name')?.textContent.trim() || '';
+            const line = qty ? `${qty} ${name}` : name;
+            text += line + '\n';
+        });
+    });
+    return text.trim();
+}
+
+async function copyList() {
+    const text = buildListText();
+    const btn = document.getElementById('copy-btn');
+
+    try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Kopierad!';
+        setTimeout(() => btn.textContent = 'Kopiera listan', 2000);
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        btn.textContent = 'Kopierad!';
+        setTimeout(() => btn.textContent = 'Kopiera listan', 2000);
+    }
+}
+</script>
+{% endblock %}

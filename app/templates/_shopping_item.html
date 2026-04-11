@@ -1,0 +1,15 @@
+<div class="shopping-item {% if item.checked %}checked{% endif %}" id="item-{{ item.id }}">
+    <button class="check-btn"
+            hx-post="/htmx/shopping-list/toggle/{{ item.id }}"
+            hx-target="#item-{{ item.id }}"
+            hx-swap="outerHTML">
+        {% if item.checked %}&#9745;{% else %}&#9744;{% endif %}
+    </button>
+    <span class="item-quantity">{{ item.quantity or '' }}</span>
+    <span class="item-name">{{ item.name }}</span>
+    <button class="btn-icon btn-remove"
+            hx-post="/htmx/shopping-list/remove/{{ item.id }}"
+            hx-target="#item-{{ item.id }}"
+            hx-swap="outerHTML"
+            title="Ta bort">&#215;</button>
+</div>

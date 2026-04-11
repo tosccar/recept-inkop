@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Erbjudanden v{{ week }} – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Erbjudanden v{{ week }}, {{ year }}</h1>
+<p class="subtitle"><a href="https://www.ica.se/butiker/maxi/ostersund/maxi-ica-stormarknad-ostersund-1003733/erbjudanden/" target="_blank" rel="noopener">ICA Maxi Östersund</a> – veckans extrapriser</p>
+
+<div class="deals-actions">
+    <form method="post" action="/deals/fetch" id="fetch-form">
+        <button type="submit" class="btn btn-primary" id="fetch-btn" onclick="startFetch()">
+            Hämta erbjudanden från ICA
+        </button>
+    </form>
+    {% if deals %}
+    <span class="deals-count">{{ deals|length }} erbjudanden inlästa</span>
+    {% endif %}
+</div>
+
+{% if matches %}
+<h2>Recept som matchar veckans erbjudanden</h2>
+<div class="match-grid">
+    {% for m in matches %}
+    <a href="/recipe/{{ m.recipe.id }}" class="match-card">
+        <div class="match-header">
+            <h3>{{ m.recipe.name }}</h3>
+            {% if m.recipe.category %}
+            <span class="badge category">{{ m.recipe.category }}</span>
+            {% endif %}
+        </div>
+        <div class="match-bar-container">
+            <div class="match-bar" style="width: {{ m.match_pct }}%"></div>
+            <span class="match-bar-label">{{ m.matched_count }}/{{ m.total_ingredients }} ingredienser på extrapris</span>
+        </div>
+        <div class="match-ingredients">
+            {% for mi in m.matched_ingredients %}
+            <div class="match-ingredient">
+                <span class="deal-tag">{{ mi.deal }}</span>
+                <span class="deal-price">{{ mi.price }}</span>
+                {% if mi.original_price %}
+                <span class="deal-original">{{ mi.original_price }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% if m.recipe.avg_rating %}
+        <div class="match-rating">
+            <span class="stars-small">
+                {% for i in range(1, 6) %}
+                <span class="star {% if i <= m.recipe.avg_rating|round %}filled{% endif %}">&#9733;</span>
+                {% endfor %}
+            </span>
+        </div>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
+{% elif deals %}
+<div class="empty-state">
+    <p>Inga av era sparade recept matchar veckans erbjudanden.</p>
+    <p>Lägg till fler recept med ingredienser för bättre matchning!</p>
+</div>
+{% endif %}
+
+{% if deals %}
+<h2>Alla erbjudanden denna vecka ({{ deals|length }} st)</h2>
+<div class="deals-table-container">
+    <table class="deals-table">
+        <thead>
+            <tr><th>Produkt</th><th>Pris</th><th>Ord. pris</th></tr>
+        </thead>
+        <tbody>
+            {% for deal in deals %}
+            <tr>
+                <td>{{ deal.product_name }}</td>
+                <td class="deal-highlight">{{ deal.price }}</td>
+                <td>{{ deal.original_price or '–' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Inga erbjudanden inlästa denna vecka.</p>
+    <p>Klicka på "Hämta erbjudanden från ICA" ovan för att ladda veckans extrapriser.</p>
+</div>
+{% endif %}
+
+<script>
+function startFetch() {
+    const btn = document.getElementById('fetch-btn');
+    btn.textContent = 'Hämtar erbjudanden...';
+    btn.disabled = true;
+}
+</script>
+{% endblock %}

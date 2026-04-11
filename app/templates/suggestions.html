@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Veckoförslag – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Veckoförslag (v{{ week }}, {{ year }})</h1>
+
+{% if current_suggestions %}
+<div class="suggestions-grid">
+    {% for s in current_suggestions %}
+    <div class="suggestion-card status-{{ s.status }}">
+        <div class="suggestion-header">
+            <h3>{{ s.recipe_name }}</h3>
+            {% if s.category %}
+            <span class="badge category">{{ s.category }}</span>
+            {% endif %}
+        </div>
+        {% if s.description %}
+        <p class="suggestion-desc">{{ s.description }}</p>
+        {% endif %}
+        {% if s.reason %}
+        <p class="suggestion-reason">{{ s.reason }}</p>
+        {% endif %}
+        {% if s.source_url %}
+        <a href="{{ s.source_url }}" target="_blank" rel="noopener" class="suggestion-link">Se recept &rarr;</a>
+        {% endif %}
+        <div class="suggestion-actions">
+            {% if s.status == 'new' %}
+            <form method="post" action="/suggestions/{{ s.id }}/accept" class="inline-form">
+                <button type="submit" class="btn btn-primary btn-sm">Testa detta!</button>
+            </form>
+            <form method="post" action="/suggestions/{{ s.id }}/reject" class="inline-form">
+                <button type="submit" class="btn btn-secondary btn-sm">Nej tack</button>
+            </form>
+            {% elif s.status == 'accepted' %}
+            <span class="status-badge accepted">Accepterat</span>
+            {% elif s.status == 'rejected' %}
+            <span class="status-badge rejected">Avböjt</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>Inga förslag denna vecka ännu.</p>
+    <p>Nya förslag genereras automatiskt varje vecka baserat på betyg och preferenser.</p>
+</div>
+{% endif %}
+
+<!-- Smakprofil -->
+<h2>Er smakprofil</h2>
+<div class="profile-section">
+    {% if profile.total_rated == 0 %}
+    <p class="empty-state">Inga recept betygsatta ännu. Betygsätt recept så att förslagen blir bättre!</p>
+    {% else %}
+    <div class="profile-grid">
+        <div class="profile-card">
+            <h4>Familjepreferenser</h4>
+            <ul>
+                {% for key, value in profile.preferences.items() %}
+                <li><strong>{{ key.replace('_', ' ')|capitalize }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% if profile.category_averages %}
+        <div class="profile-card">
+            <h4>Betyg per kategori</h4>
+            <table class="profile-table">
+                {% for cat, avg in profile.category_averages.items() %}
+                <tr>
+                    <td>{{ cat|capitalize }}</td>
+                    <td>
+                        <span class="stars-small">
+                            {% for i in range(1, 6) %}
+                            <span class="star {% if i <= avg|round %}filled{% endif %}">&#9733;</span>
+                            {% endfor %}
+                        </span>
+                        ({{ avg }})
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endif %}
+
+        {% if profile.top_recipes %}
+        <div class="profile-card">
+            <h4>Favoriter</h4>
+            <ul>
+                {% for r in profile.top_recipes[:5] %}
+                <li>{{ r.name }} ({{ r.category }}) – {{ "%.1f"|format(r.avg) }} &#9733;</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if profile.comments %}
+        <div class="profile-card">
+            <h4>Senaste kommentarer</h4>
+            {% for c in profile.comments[-5:] %}
+            <div class="comment-entry">
+                <strong>{{ c.recipe }}</strong> ({{ c.score }} &#9733;): <em>{{ c.comment }}</em>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <p class="profile-summary">
+        {{ profile.total_rated }} av {{ profile.total_recipes }} recept betygsatta.
+    </p>
+    {% endif %}
+</div>
+
+{% if history and history|length > current_suggestions|length %}
+<h2>Tidigare förslag</h2>
+<div class="history-list">
+    {% for s in history %}
+    {% if s not in current_suggestions %}
+    <div class="history-entry">
+        <span class="badge category">v{{ s.week_number }}</span>
+        <strong>{{ s.recipe_name }}</strong>
+        {% if s.category %}<span class="badge tag">{{ s.category }}</span>{% endif %}
+        <span class="status-badge {{ s.status }}">{{ s.status }}</span>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

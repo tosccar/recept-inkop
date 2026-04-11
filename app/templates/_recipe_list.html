@@ -1,0 +1,62 @@
+{% if recipes %}
+<p class="result-count">{{ recipes|length }}{% if total %} av {{ total }}{% endif %} recept</p>
+
+<div class="recipe-table-container">
+    <table class="recipe-table">
+        <thead>
+            <tr>
+                <th class="sortable" onclick="sortBy('name')">
+                    Recept
+                    <span class="sort-icon">{% if selected_sort == 'name_asc' %}&#9650;{% elif selected_sort == 'name_desc' %}&#9660;{% endif %}</span>
+                </th>
+                <th class="sortable" onclick="sortBy('category')">
+                    Kategori
+                    <span class="sort-icon">{% if selected_sort == 'category_asc' %}&#9650;{% elif selected_sort == 'category_desc' %}&#9660;{% endif %}</span>
+                </th>
+                <th class="sortable" onclick="sortBy('rating')">
+                    Betyg
+                    <span class="sort-icon">{% if selected_sort == 'rating_desc' %}&#9660;{% elif selected_sort == 'rating_asc' %}&#9650;{% endif %}</span>
+                </th>
+                <th>Port.</th>
+                <th>Ingredienser</th>
+                <th class="sortable" onclick="sortBy('newest')">
+                    Tillagd
+                    <span class="sort-icon">{% if selected_sort == 'newest' %}&#9660;{% elif selected_sort == 'oldest' %}&#9650;{% endif %}</span>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for recipe in recipes %}
+            <tr onclick="window.location='/recipe/{{ recipe.id }}'" class="clickable-row">
+                <td class="recipe-name-cell">
+                    {{ recipe.name }}
+                    {% if recipe.image_path %}<span class="has-image-dot" title="Har bild"></span>{% endif %}
+                </td>
+                <td>
+                    {% if recipe.category %}
+                    <span class="badge category clickable-badge"
+                          onclick="event.stopPropagation(); filterCategory('{{ recipe.category }}')">
+                        {{ recipe.category }}
+                    </span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if recipe.avg_rating %}
+                    <span class="stars-small">
+                        {% for i in range(1, 6) %}
+                        <span class="star {% if i <= recipe.avg_rating|round %}filled{% endif %}">&#9733;</span>
+                        {% endfor %}
+                    </span>
+                    {% else %}–{% endif %}
+                </td>
+                <td>{{ recipe.servings }}</td>
+                <td class="ingredient-count-cell">{{ recipe.ingredients|length }}</td>
+                <td class="date-cell">{{ recipe.created_at.strftime('%Y-%m-%d') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="empty-state">Inga recept hittades. <a href="/add">Lägg till ditt första recept!</a></p>
+{% endif %}

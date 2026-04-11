@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Alla recept – Recept & Inköp{% endblock %}
+{% block content %}
+<h1>Recept</h1>
+
+<div class="filter-panel">
+    <input type="text" name="search" placeholder="Sök recept, ingrediens..."
+           value="{{ search }}"
+           hx-get="/htmx/recipes"
+           hx-trigger="keyup changed delay:300ms"
+           hx-target="#recipe-list"
+           hx-include=".filter-control"
+           class="search-input">
+    <input type="hidden" name="category" id="category-filter" class="filter-control" value="{{ selected_category }}">
+    <input type="hidden" name="sort" id="sort-filter" class="filter-control" value="{{ selected_sort }}">
+    <div class="quick-filters">
+        <button type="button" class="qf-btn {% if not selected_category %}active{% endif %}"
+                onclick="filterCategory('')">Alla</button>
+        {% for cat in categories %}
+        <button type="button" class="qf-btn {% if selected_category == cat %}active{% endif %}"
+                onclick="filterCategory('{{ cat }}')">{{ cat|capitalize }}</button>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="recipe-list">
+    {% include "_recipe_list.html" %}
+</div>
+
+<script>
+function doSearch() {
+    const searchEl = document.querySelector('[name="search"]');
+    const search = searchEl.value;
+    const category = document.getElementById('category-filter').value;
+    const sort = document.getElementById('sort-filter').value;
+    const url = `/htmx/recipes?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&sort=${encodeURIComponent(sort)}`;
+    htmx.ajax('GET', url, '#recipe-list');
+}
+
+function sortBy(column) {
+    const sortInput = document.getElementById('sort-filter');
+    const current = sortInput.value;
+
+    const sortMap = {
+        'name': ['name_asc', 'name_desc'],
+        'category': ['category_asc', 'category_desc'],
+        'rating': ['rating_desc', 'rating_asc'],
+        'servings': ['servings_asc', 'servings_desc'],
+        'newest': ['newest', 'oldest'],
+    };
+
+    const options = sortMap[column];
+    if (!options) return;
+    sortInput.value = (current === options[0]) ? options[1] : options[0];
+    doSearch();
+}
+
+function filterCategory(cat) {
+    const input = document.getElementById('category-filter');
+    input.value = cat;
+    document.querySelectorAll('.qf-btn').forEach(b => b.classList.remove('active'));
+    const clicked = event?.target?.closest?.('.qf-btn');
+    if (clicked) clicked.classList.add('active');
+    else document.querySelector('.qf-btn')?.classList.add('active');
+    doSearch();
+}
+</script>
+{% endblock %}

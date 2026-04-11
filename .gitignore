@@ -1,0 +1,8 @@
+.env
+keep_token.json
+__pycache__/
+*.pyc
+recipes.db
+recipe_images/
+recipes_pdf/
+.claude/

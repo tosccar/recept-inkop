@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: recept-inkop
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATA_DIR
+        value: /opt/render/data
+      - key: AUTH_USERNAME
+        sync: false
+      - key: AUTH_PASSWORD
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+    disk:
+      name: recept-data
+      mountPath: /opt/render/data
+      sizeGB: 1
