@@ -38,6 +38,16 @@ def startup():
     init_db()
 
 
+@app.post("/admin/upload-db")
+async def admin_upload_db(file: UploadFile = File(...)):
+    """Temporart endpoint."""
+    from app.database import DB_PATH
+    content = await file.read()
+    with open(DB_PATH, "wb") as f:
+        f.write(content)
+    return {"status": "ok", "size": len(content)}
+
+
 
 # --- Startsida ---
 
