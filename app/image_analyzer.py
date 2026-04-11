@@ -103,8 +103,12 @@ OCR-text:
 def _get_ocr_reader():
     global _ocr_reader
     if _ocr_reader is None:
-        import easyocr
-        _ocr_reader = easyocr.Reader(["sv", "en"], gpu=False, verbose=False)
+        try:
+            import easyocr
+            _ocr_reader = easyocr.Reader(["sv", "en"], gpu=False, verbose=False)
+        except ImportError:
+            logger.warning("easyocr inte installerat — OCR-fallback inaktiverad")
+            return None
     return _ocr_reader
 
 

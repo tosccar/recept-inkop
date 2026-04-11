@@ -12,4 +12,3 @@ anthropic
 python-docx
 PyMuPDF
 Pillow
-easyocr
