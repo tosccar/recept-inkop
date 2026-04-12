@@ -278,10 +278,19 @@ def serve_recipe_file(recipe_id: int, db: Session = Depends(get_db)):
     recipe = crud.get_recipe(db, recipe_id)
     if not recipe or not recipe.pdf_path:
         return RedirectResponse(f"/recipe/{recipe_id}", status_code=303)
-    filepath = recipe.pdf_path
-    if not os.path.exists(filepath):
-        return RedirectResponse(f"/recipe/{recipe_id}", status_code=303)
-    return FileResponse(filepath)
+
+    filename = recipe.pdf_path
+    # Sök filen i DATA_DIR/recipes_pdf/ och lokalt
+    search_paths = [
+        os.path.join(DATA_DIR, "recipes_pdf", filename),
+        os.path.join(PDF_DIR, filename),
+        filename,  # Absolut sökväg (bakåtkompatibilitet)
+    ]
+    for filepath in search_paths:
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+            return FileResponse(filepath)
+
+    return RedirectResponse(f"/recipe/{recipe_id}", status_code=303)
 
 
 # --- Ta bort ---
@@ -655,3 +664,12 @@ def htmx_remove_item(item_id: int, db: Session = Depends(get_db)):
     crud.remove_shopping_item(db, item_id)
     return HTMLResponse("")
 
+
+
+@app.post("/admin/upload-db")
+async def admin_upload_db(file: UploadFile = File(...)):
+    from app.database import DB_PATH
+    content = await file.read()
+    with open(DB_PATH, "wb") as f:
+        f.write(content)
+    return {"status": "ok", "size": len(content)}
