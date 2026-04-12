@@ -38,6 +38,24 @@ def startup():
     init_db()
 
 
+@app.post("/admin/upload-archive")
+async def admin_upload_archive(file: UploadFile = File(...)):
+    """Temporärt: ladda upp zip med filer till data-katalogen."""
+    import zipfile, io
+    content = await file.read()
+    zf = zipfile.ZipFile(io.BytesIO(content))
+    extracted = 0
+    for name in zf.namelist():
+        if name.endswith("/"):
+            continue
+        target = os.path.join(DATA_DIR, name)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as f:
+            f.write(zf.read(name))
+        extracted += 1
+    return {"status": "ok", "extracted": extracted}
+
+
 
 
 # --- Startsida ---
