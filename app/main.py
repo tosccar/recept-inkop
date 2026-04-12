@@ -656,3 +656,12 @@ def htmx_remove_item(item_id: int, db: Session = Depends(get_db)):
     return HTMLResponse("")
 
 
+
+
+@app.post("/admin/upload-db")
+async def admin_upload_db(file: UploadFile = File(...)):
+    from app.database import DB_PATH
+    content = await file.read()
+    with open(DB_PATH, "wb") as f:
+        f.write(content)
+    return {"status": "ok", "size": len(content)}
