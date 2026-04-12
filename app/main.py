@@ -655,27 +655,3 @@ def htmx_remove_item(item_id: int, db: Session = Depends(get_db)):
     crud.remove_shopping_item(db, item_id)
     return HTMLResponse("")
 
-
-@app.post("/admin/upload-db")
-async def admin_upload_db(file: UploadFile = File(...)):
-    from app.database import DB_PATH
-    content = await file.read()
-    with open(DB_PATH, "wb") as f:
-        f.write(content)
-    return {"status": "ok", "size": len(content)}
-
-@app.post("/admin/upload-archive")
-async def admin_upload_archive(file: UploadFile = File(...)):
-    import zipfile, io
-    content = await file.read()
-    zf = zipfile.ZipFile(io.BytesIO(content))
-    extracted = 0
-    for name in zf.namelist():
-        if name.endswith("/"):
-            continue
-        target = os.path.join(DATA_DIR, name)
-        os.makedirs(os.path.dirname(target), exist_ok=True)
-        with open(target, "wb") as f:
-            f.write(zf.read(name))
-        extracted += 1
-    return {"status": "ok", "extracted": extracted}
