@@ -124,6 +124,18 @@ class MenuSlot(Base):
     recipe = relationship("Recipe")
 
 
+class DealMatch(Base):
+    """AI-genererad matchning mellan ingrediens och erbjudande."""
+    __tablename__ = "deal_matches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ingredient = Column(String, nullable=False, index=True)  # t.ex. "fläskfilé"
+    deal_product = Column(String, nullable=False)  # t.ex. "Fläskytterfilé, ICA, 800g"
+    deal_price = Column(String)
+    week_number = Column(Integer, nullable=False)
+    year = Column(Integer, nullable=False)
+
+
 class ShoppingItem(Base):
     """En rad på inköpslistan."""
     __tablename__ = "shopping_items"

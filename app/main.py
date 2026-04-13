@@ -15,6 +15,7 @@ from app.tags import PREDEFINED_TAGS
 from app.ica_deals import fetch_ica_deals, save_deals_to_db
 from app.auth import verify_credentials
 from app.image_utils import fix_orientation
+from app.deal_matcher import get_all_ai_matches
 
 app = FastAPI(title="Recept & Inköp", dependencies=[Depends(verify_credentials)])
 
@@ -534,12 +535,19 @@ async def api_fetch_ica_deals(db: Session = Depends(get_db)):
 
 @app.post("/deals/fetch", response_class=HTMLResponse)
 async def deals_fetch_and_redirect(db: Session = Depends(get_db)):
-    """Hämtar ICA-erbjudanden och redirectar tillbaka till deals-sidan."""
+    """Hämtar ICA-erbjudanden, kör AI-matchning, och redirectar."""
     import asyncio
     loop = asyncio.get_event_loop()
     deals = await loop.run_in_executor(None, fetch_ica_deals)
     if deals:
         save_deals_to_db(db, deals)
+        # Kör AI-matchning i bakgrunden
+        from app.deal_matcher import generate_ai_matches
+        try:
+            await loop.run_in_executor(None, generate_ai_matches, db)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"AI-matchning misslyckades: {e}")
     return RedirectResponse("/deals", status_code=303)
 
 
@@ -585,8 +593,9 @@ def menu_page(request: Request, db: Session = Depends(get_db)):
     slots = crud.get_menu(db, year=year, week=week)
     deals = crud.get_current_deals(db)
     deal_map = crud.get_ingredient_deal_map(db)
-    # Bygg ingredient->deal matchning per slot
-    slot_deals = _build_slot_deals(slots, deal_map)
+    ai_matches = get_all_ai_matches(db)
+    # Bygg ingredient->deal matchning per slot (text + AI)
+    slot_deals = _build_slot_deals(slots, deal_map, ai_matches)
     return templates.TemplateResponse("menu.html", {
         "request": request,
         "slots": slots,
@@ -598,14 +607,14 @@ def menu_page(request: Request, db: Session = Depends(get_db)):
     })
 
 
-def _build_slot_deals(slots, deal_map):
+def _build_slot_deals(slots, deal_map, ai_matches=None):
     """Bygger en dict: ingredient_id -> deal_info för alla slots."""
     result = {}
     for slot in slots:
         if not slot.recipe or not slot.recipe.ingredients:
             continue
         for ing in slot.recipe.ingredients:
-            match = crud.match_ingredient_to_deal(ing.name, deal_map)
+            match = crud.match_ingredient_to_deal(ing.name, deal_map, ai_matches)
             if match:
                 result[ing.id] = match
     return result
@@ -626,7 +635,7 @@ def htmx_reroll(request: Request, slot_id: int, db: Session = Depends(get_db)):
     return templates.TemplateResponse("_menu_card.html", {
         "request": request,
         "slot": slot,
-        "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db)),
+        "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db), get_all_ai_matches(db)),
     })
 
 
@@ -641,7 +650,7 @@ def htmx_update_servings(request: Request, slot_id: int,
     return templates.TemplateResponse("_menu_card.html", {
         "request": request,
         "slot": slot,
-        "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db)),
+        "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db), get_all_ai_matches(db)),
     })
 
 
@@ -656,7 +665,7 @@ def htmx_add_to_list(request: Request, slot_id: int, db: Session = Depends(get_d
         "request": request,
         "slot": slot,
         "just_added": True,
-        "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db)),
+        "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db), get_all_ai_matches(db)),
     })
 
 

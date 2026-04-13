@@ -21,7 +21,7 @@ def get_db():
 
 
 def init_db():
-    from app.models import Recipe, Ingredient, Tag, Rating, Suggestion, Deal, FamilyPreference, MenuSlot, ShoppingItem  # noqa: F401
+    from app.models import Recipe, Ingredient, Tag, Rating, Suggestion, Deal, FamilyPreference, MenuSlot, ShoppingItem, DealMatch  # noqa: F401
     Base.metadata.create_all(bind=engine)
     # Seed default family preferences if empty
     db = SessionLocal()

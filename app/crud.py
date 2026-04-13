@@ -506,14 +506,21 @@ def get_ingredient_deal_map(db: Session) -> dict[str, dict]:
     return result
 
 
-def match_ingredient_to_deal(ing_name: str, deal_map: dict) -> dict | None:
-    """Matchar en ingrediens mot deal-mappen. Ignorerar triviala ingredienser."""
+def match_ingredient_to_deal(ing_name: str, deal_map: dict, ai_matches: dict = None) -> dict | None:
+    """Matchar en ingrediens mot deal-mappen. Använder AI-matchningar som fallback."""
     if _is_trivial_ingredient(ing_name):
         return None
 
+    # Steg 1: Direkt textmatchning
     for key, deal in deal_map.items():
         if _ingredient_matches_deal(ing_name, key):
             return deal
+
+    # Steg 2: AI-matchning (om tillgänglig)
+    if ai_matches:
+        ai_match = ai_matches.get(ing_name.lower().strip())
+        if ai_match:
+            return ai_match
 
     return None
 
