@@ -5,8 +5,8 @@
 <p class="subtitle"><a href="https://www.ica.se/butiker/maxi/ostersund/maxi-ica-stormarknad-ostersund-1003733/erbjudanden/" target="_blank" rel="noopener">ICA Maxi Östersund</a> – veckans extrapriser</p>
 
 <div class="deals-actions">
-    <form method="post" action="/deals/fetch" id="fetch-form">
-        <button type="submit" class="btn btn-primary" id="fetch-btn" onclick="startFetch()">
+    <form method="post" action="/deals/fetch" id="fetch-form" onsubmit="startFetch()">
+        <button type="submit" class="btn btn-primary" id="fetch-btn">
             Hämta erbjudanden från ICA
         </button>
     </form>
@@ -87,9 +87,14 @@
 
 <script>
 function startFetch() {
-    const btn = document.getElementById('fetch-btn');
-    btn.textContent = 'Hämtar erbjudanden...';
-    btn.disabled = true;
+    // Ändra texten efter en kort fördröjning så submit hinner ske
+    setTimeout(() => {
+        const btn = document.getElementById('fetch-btn');
+        if (btn) {
+            btn.textContent = 'Hämtar erbjudanden...';
+            btn.disabled = true;
+        }
+    }, 100);
 }
 </script>
 {% endblock %}

@@ -261,6 +261,40 @@ async def edit_recipe(
     return RedirectResponse(f"/recipe/{recipe_id}", status_code=303)
 
 
+# --- Rotera bild ---
+
+@app.post("/api/rotate-image/{recipe_id}")
+def api_rotate_image(recipe_id: int, db: Session = Depends(get_db)):
+    """Roterar receptbilden 90 grader medurs."""
+    from PIL import Image
+    import io
+    from app.models import Recipe
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    if not recipe or not recipe.image_path:
+        return JSONResponse({"error": "Ingen bild"}, status_code=404)
+
+    filename = os.path.basename(recipe.image_path)
+    search_paths = [
+        os.path.join(IMAGES_DIR, filename),
+        os.path.join(DATA_DIR, "recipe_images", filename),
+    ]
+    filepath = None
+    for p in search_paths:
+        if os.path.exists(p):
+            filepath = p
+            break
+    if not filepath:
+        return JSONResponse({"error": "Bildfil saknas"}, status_code=404)
+
+    img = Image.open(filepath)
+    img = img.rotate(-90, expand=True)
+    if img.mode == "RGBA":
+        img = img.convert("RGB")
+    img.save(filepath, format="JPEG", quality=85)
+
+    return {"status": "ok", "image_url": recipe.image_path}
+
+
 # --- Lägg till på inköpslista från receptsidan ---
 
 @app.post("/recipe/{recipe_id}/add-to-list")
@@ -484,9 +518,11 @@ def api_create_deal(
 
 
 @app.post("/api/deals/fetch-ica")
-def api_fetch_ica_deals(db: Session = Depends(get_db)):
+async def api_fetch_ica_deals(db: Session = Depends(get_db)):
     """Hämtar erbjudanden från ICA Maxi Östersund via deras publika API."""
-    deals = fetch_ica_deals()
+    import asyncio
+    loop = asyncio.get_event_loop()
+    deals = await loop.run_in_executor(None, fetch_ica_deals)
     if not deals:
         return JSONResponse(
             {"error": "Kunde inte hämta erbjudanden från ICA. Försök igen senare."},
@@ -497,9 +533,11 @@ def api_fetch_ica_deals(db: Session = Depends(get_db)):
 
 
 @app.post("/deals/fetch", response_class=HTMLResponse)
-def deals_fetch_and_redirect(db: Session = Depends(get_db)):
+async def deals_fetch_and_redirect(db: Session = Depends(get_db)):
     """Hämtar ICA-erbjudanden och redirectar tillbaka till deals-sidan."""
-    deals = fetch_ica_deals()
+    import asyncio
+    loop = asyncio.get_event_loop()
+    deals = await loop.run_in_executor(None, fetch_ica_deals)
     if deals:
         save_deals_to_db(db, deals)
     return RedirectResponse("/deals", status_code=303)

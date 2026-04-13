@@ -5,8 +5,26 @@
     {% if request.query_params.get('added') %}
     <div class="sync-success">Ingredienser tillagda på inköpslistan!</div>
     {% endif %}
+
+    <!-- Header: namn, meta, knappar -->
     <div class="detail-header">
-        <h1>{{ recipe.name }}</h1>
+        <div>
+            <h1>{{ recipe.name }}</h1>
+            <div class="detail-meta">
+                {% if recipe.category %}
+                <span class="badge category">{{ recipe.category }}</span>
+                {% endif %}
+                <span class="servings">{{ recipe.servings }} portioner</span>
+                {% if recipe.avg_rating %}
+                <span class="stars">
+                    {% for i in range(1, 6) %}
+                    <span class="star {% if i <= recipe.avg_rating|round %}filled{% endif %}">&#9733;</span>
+                    {% endfor %}
+                    <span class="rating-count">({{ "%.1f"|format(recipe.avg_rating) }})</span>
+                </span>
+                {% endif %}
+            </div>
+        </div>
         <div class="detail-actions">
             <form method="post" action="/recipe/{{ recipe.id }}/add-to-list" class="inline-form" id="add-list-form">
                 <input type="hidden" name="servings" id="list-servings" value="{{ recipe.servings }}">
@@ -21,85 +39,85 @@
         </div>
     </div>
 
-    <div class="detail-meta">
-        {% if recipe.category %}
-        <span class="badge category">{{ recipe.category }}</span>
-        {% endif %}
-        <span class="servings">{{ recipe.servings }} portioner</span>
-        {% if recipe.avg_rating %}
-        <span class="stars">
-            {% for i in range(1, 6) %}
-            <span class="star {% if i <= recipe.avg_rating|round %}filled{% endif %}">&#9733;</span>
-            {% endfor %}
-            <span class="rating-count">({{ "%.1f"|format(recipe.avg_rating) }})</span>
-        </span>
-        {% endif %}
-    </div>
+    {% set has_right = recipe.image_path or recipe.source_link or recipe.pdf_path %}
 
-    <div class="recipe-image-section">
-        {% if recipe.image_path %}
-        <div class="recipe-image" id="recipe-image">
-            <img src="{{ recipe.image_path }}" alt="{{ recipe.name }}">
+    <!-- Tvåkolumner om det finns bild/källa, annars enkel layout -->
+    <div class="detail-columns {% if not has_right %}single-column{% endif %}">
+        <div class="detail-left">
+            {% if recipe.ingredients %}
+            <div class="portions-control">
+                <h2>Ingredienser</h2>
+                <div class="portions-adjuster">
+                    <button type="button" class="btn-portion" id="portions-minus">−</button>
+                    <span id="portions-display">{{ recipe.servings }}</span>
+                    <span class="portions-label">port.</span>
+                    <button type="button" class="btn-portion" id="portions-plus">+</button>
+                </div>
+            </div>
+            <table class="ingredients-table">
+                <thead>
+                    <tr><th>Ingrediens</th><th>Mängd</th></tr>
+                </thead>
+                <tbody>
+                    {% for ing in recipe.ingredients %}
+                    <tr>
+                        <td>{{ ing.name }}</td>
+                        <td class="qty-cell" data-original-qty="{{ ing.quantity or '' }}">{{ ing.quantity or '–' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+
+        {% if has_right %}
+        <div class="detail-right">
+            {% if recipe.image_path %}
+            <div class="recipe-image" id="recipe-image">
+                <img src="{{ recipe.image_path }}" alt="{{ recipe.name }}" id="recipe-img">
+            </div>
+            <div class="image-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="rotateImage({{ recipe.id }})">Rotera</button>
+                <label class="btn btn-secondary btn-sm dropzone-btn">
+                    Byt bild
+                    <input type="file" accept="image/*" hidden
+                           onchange="handleImageSelect(this, {{ recipe.id }})">
+                </label>
+            </div>
+            {% else %}
+            <div class="image-dropzone" id="image-dropzone"
+                 ondragover="event.preventDefault(); this.classList.add('dragover')"
+                 ondragleave="this.classList.remove('dragover')"
+                 ondrop="handleImageDrop(event, {{ recipe.id }})">
+                <span class="dropzone-text">Lägg till bild:</span>
+                <label class="btn btn-secondary btn-sm dropzone-btn">
+                    Välj bild / Ta foto
+                    <input type="file" accept="image/*" hidden
+                           onchange="handleImageSelect(this, {{ recipe.id }})">
+                </label>
+            </div>
+            {% endif %}
+
+            {% if recipe.source_link and recipe.source_type == 'url' %}
+            <div class="detail-source">
+                <a href="{{ recipe.source_link }}" target="_blank" rel="noopener">{{ recipe.source_link }}</a>
+            </div>
+            {% endif %}
+            {% if recipe.pdf_path %}
+            <div class="detail-source">
+                <a href="/recipe/{{ recipe.id }}/file" target="_blank" class="pdf-badge">Öppna sparad fil</a>
+            </div>
+            {% endif %}
         </div>
         {% endif %}
-        <div class="image-dropzone {% if recipe.image_path %}compact{% endif %}" id="image-dropzone"
-             ondragover="event.preventDefault(); this.classList.add('dragover')"
-             ondragleave="this.classList.remove('dragover')"
-             ondrop="handleImageDrop(event, {{ recipe.id }})">
-            <span class="dropzone-text">
-                {% if recipe.image_path %}Byt bild:{% else %}Lägg till bild:{% endif %}
-            </span>
-            <label class="btn btn-secondary btn-sm dropzone-btn">
-                Välj bild / Ta foto
-                <input type="file" accept="image/*" hidden
-                       onchange="handleImageSelect(this, {{ recipe.id }})">
-            </label>
-        </div>
     </div>
 
-    {% if recipe.source_link %}
-    <div class="detail-source">
-        <strong>Källa:</strong>
-        {% if recipe.source_type == 'url' %}
-        <a href="{{ recipe.source_link }}" target="_blank" rel="noopener">{{ recipe.source_link }}</a>
-        {% else %}
-        {{ recipe.source_link }} ({{ recipe.source_type }})
-        {% endif %}
-        {% if recipe.pdf_path %}
-        <br><a href="/recipe/{{ recipe.id }}/file" target="_blank" class="pdf-badge">Öppna sparad fil</a>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    {% if recipe.ingredients %}
-    <div class="portions-control">
-        <h2>Ingredienser</h2>
-        <div class="portions-adjuster">
-            <button type="button" class="btn-portion" id="portions-minus">−</button>
-            <span id="portions-display">{{ recipe.servings }}</span>
-            <span class="portions-label">port.</span>
-            <button type="button" class="btn-portion" id="portions-plus">+</button>
-        </div>
-    </div>
-    <table class="ingredients-table">
-        <thead>
-            <tr><th>Ingrediens</th><th>Mängd</th><th>Grupp</th></tr>
-        </thead>
-        <tbody>
-            {% for ing in recipe.ingredients %}
-            <tr>
-                <td>{{ ing.name }}</td>
-                <td class="qty-cell" data-original-qty="{{ ing.quantity or '' }}">{{ ing.quantity or '–' }}</td>
-                <td>{{ ing.group_name or '–' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-
+    <!-- Tillagning (full bredd) -->
     {% if recipe.notes %}
-    <h2>Anteckningar</h2>
-    <p class="notes-text">{{ recipe.notes }}</p>
+    <div class="detail-full">
+        <h2>Tillagning</h2>
+        <p class="notes-text">{{ recipe.notes }}</p>
+    </div>
     {% endif %}
 
     <!-- Betygsättning -->
@@ -149,104 +167,65 @@
     if (!display) return;
 
     function parseQty(text) {
-        // Parsa mängdtext: "500 g", "2 dl", "1.5 kg", "2 st", "1/2 dl"
         text = text.trim();
         if (!text || text === '–') return null;
-
-        // Hantera bråk: "1/2", "3/4"
         const fracMatch = text.match(/^(\d+)\/(\d+)\s*(.*)/);
-        if (fracMatch) {
-            return { num: parseFloat(fracMatch[1]) / parseFloat(fracMatch[2]), rest: fracMatch[3] };
-        }
-
-        // Hantera "1 1/2" (mixed fraction)
+        if (fracMatch) return { num: parseFloat(fracMatch[1]) / parseFloat(fracMatch[2]), rest: fracMatch[3] };
         const mixedMatch = text.match(/^(\d+)\s+(\d+)\/(\d+)\s*(.*)/);
-        if (mixedMatch) {
-            const whole = parseFloat(mixedMatch[1]);
-            const frac = parseFloat(mixedMatch[2]) / parseFloat(mixedMatch[3]);
-            return { num: whole + frac, rest: mixedMatch[4] };
-        }
-
-        // Hantera vanliga tal: "500 g", "2 dl", "1.5 kg"
+        if (mixedMatch) return { num: parseFloat(mixedMatch[1]) + parseFloat(mixedMatch[2]) / parseFloat(mixedMatch[3]), rest: mixedMatch[4] };
         const numMatch = text.match(/^([\d.,]+)\s*(.*)/);
-        if (numMatch) {
-            return { num: parseFloat(numMatch[1].replace(',', '.')), rest: numMatch[2] };
-        }
-
+        if (numMatch) return { num: parseFloat(numMatch[1].replace(',', '.')), rest: numMatch[2] };
         return null;
     }
 
     function formatNum(n) {
         if (n === Math.floor(n)) return n.toString();
-        // Visa snygga bråk för vanliga värden
         const frac = n - Math.floor(n);
         if (Math.abs(frac - 0.5) < 0.01) return Math.floor(n) ? Math.floor(n) + ' 1/2' : '1/2';
         if (Math.abs(frac - 0.25) < 0.01) return Math.floor(n) ? Math.floor(n) + ' 1/4' : '1/4';
         if (Math.abs(frac - 0.75) < 0.01) return Math.floor(n) ? Math.floor(n) + ' 3/4' : '3/4';
         if (Math.abs(frac - 0.333) < 0.02) return Math.floor(n) ? Math.floor(n) + ' 1/3' : '1/3';
-        // Annars avrunda till 1 decimal
-        const rounded = Math.round(n * 10) / 10;
-        return rounded.toString().replace('.', ',');
+        return (Math.round(n * 10) / 10).toString().replace('.', ',');
     }
 
     function updateQuantities() {
         const ratio = currentPortions / basePortions;
         display.textContent = currentPortions;
-        // Uppdatera inköpslista-portionerna
         const listServings = document.getElementById('list-servings');
         if (listServings) listServings.value = currentPortions;
-
         qtyCells.forEach(cell => {
             const original = cell.dataset.originalQty;
             if (!original || original === '–') return;
-
             const parsed = parseQty(original);
             if (!parsed) return;
-
             const newNum = parsed.num * ratio;
             cell.textContent = formatNum(newNum) + (parsed.rest ? ' ' + parsed.rest : '');
         });
     }
 
-    minusBtn.addEventListener('click', () => {
-        if (currentPortions > 1) {
-            currentPortions--;
-            updateQuantities();
-        }
-    });
-
-    plusBtn.addEventListener('click', () => {
-        if (currentPortions < 20) {
-            currentPortions++;
-            updateQuantities();
-        }
-    });
+    minusBtn.addEventListener('click', () => { if (currentPortions > 1) { currentPortions--; updateQuantities(); } });
+    plusBtn.addEventListener('click', () => { if (currentPortions < 20) { currentPortions++; updateQuantities(); } });
 })();
 
-// --- Bilduppladdning ---
 async function uploadImage(file, recipeId) {
     const dropzone = document.getElementById('image-dropzone');
     dropzone.classList.add('uploading');
     dropzone.querySelector('.dropzone-text').textContent = 'Laddar upp...';
-
     const formData = new FormData();
     formData.append('file', file);
-
     try {
-        const resp = await fetch(`/api/upload-image/${recipeId}`, {
-            method: 'POST', body: formData
-        });
+        const resp = await fetch(`/api/upload-image/${recipeId}`, { method: 'POST', body: formData });
         const data = await resp.json();
         if (resp.ok) {
-            // Visa bilden
             let imgDiv = document.querySelector('.recipe-image');
             if (!imgDiv) {
                 imgDiv = document.createElement('div');
                 imgDiv.className = 'recipe-image';
+                imgDiv.id = 'recipe-image';
                 dropzone.parentElement.insertBefore(imgDiv, dropzone);
             }
-            imgDiv.innerHTML = `<img src="${data.image_url}" alt="Receptbild">`;
-            dropzone.querySelector('.dropzone-text').textContent = 'Dra en ny bild hit eller';
+            imgDiv.innerHTML = `<img src="${data.image_url}" alt="Receptbild" id="recipe-img">`;
+            dropzone.querySelector('.dropzone-text').textContent = 'Byt bild:';
         } else {
             dropzone.querySelector('.dropzone-text').textContent = data.error || 'Uppladdning misslyckades';
         }
@@ -256,13 +235,27 @@ async function uploadImage(file, recipeId) {
     dropzone.classList.remove('uploading', 'dragover');
 }
 
+async function rotateImage(recipeId) {
+    const btn = event.target;
+    btn.textContent = 'Roterar...';
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/api/rotate-image/${recipeId}`, {method: 'POST'});
+        const data = await resp.json();
+        if (resp.ok) {
+            const img = document.getElementById('recipe-img');
+            if (img) img.src = data.image_url + '?t=' + Date.now();
+        }
+    } catch(e) {}
+    btn.textContent = 'Rotera';
+    btn.disabled = false;
+}
+
 function handleImageDrop(event, recipeId) {
     event.preventDefault();
     event.currentTarget.classList.remove('dragover');
     const file = event.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-        uploadImage(file, recipeId);
-    }
+    if (file && file.type.startsWith('image/')) uploadImage(file, recipeId);
 }
 
 function handleImageSelect(input, recipeId) {

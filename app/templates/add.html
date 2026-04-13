@@ -74,21 +74,8 @@
         </div>
     </div>
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="source_type">Typ av källa</label>
-            <select id="source_type" name="source_type">
-                <option value="url">Webblänk</option>
-                <option value="pdf">PDF</option>
-                <option value="docx">Word-dokument</option>
-                <option value="text">Fritext</option>
-            </select>
-        </div>
-        <div class="form-group flex-grow">
-            <label for="source_link">Länk / sökväg</label>
-            <input type="text" id="source_link" name="source_link" placeholder="https://... eller filsökväg">
-        </div>
-    </div>
+    <input type="hidden" id="source_type" name="source_type" value="text">
+    <input type="hidden" id="source_link" name="source_link" value="">
 
     <div class="form-group">
         <label>Taggar</label>

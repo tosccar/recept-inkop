@@ -1,30 +1,17 @@
 """Bildverktyg: EXIF-rotation, komprimering."""
 import io
-from PIL import Image, ExifTags
+from PIL import Image, ImageOps
 
 
 def fix_orientation(image_data: bytes) -> bytes:
     """Läser EXIF-orientation och roterar bilden korrekt.
+    Använder Pillows inbyggda exif_transpose för maximal kompatibilitet.
     Returnerar korrigerad JPEG-data."""
     try:
         img = Image.open(io.BytesIO(image_data))
 
-        # Hitta EXIF-orientation
-        exif = img.getexif()
-        orientation_key = None
-        for key, val in ExifTags.TAGS.items():
-            if val == "Orientation":
-                orientation_key = key
-                break
-
-        if orientation_key and orientation_key in exif:
-            orientation = exif[orientation_key]
-            if orientation == 3:
-                img = img.rotate(180, expand=True)
-            elif orientation == 6:
-                img = img.rotate(270, expand=True)
-            elif orientation == 8:
-                img = img.rotate(90, expand=True)
+        # Pillow's exif_transpose hanterar alla 8 EXIF-orientationer korrekt
+        img = ImageOps.exif_transpose(img)
 
         # Konvertera RGBA till RGB om nödvändigt
         if img.mode == "RGBA":
@@ -41,5 +28,4 @@ def fix_orientation(image_data: bytes) -> bytes:
         return buf.getvalue()
 
     except Exception:
-        # Om något går fel, returnera originaldata
         return image_data
