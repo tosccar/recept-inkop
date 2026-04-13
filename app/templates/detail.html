@@ -36,24 +36,26 @@
         {% endif %}
     </div>
 
-    {% if recipe.image_path %}
-    <div class="recipe-image">
-        <img src="{{ recipe.image_path }}" alt="{{ recipe.name }}">
+    <div class="recipe-image-section">
+        {% if recipe.image_path %}
+        <div class="recipe-image" id="recipe-image">
+            <img src="{{ recipe.image_path }}" alt="{{ recipe.name }}">
+        </div>
+        {% endif %}
+        <div class="image-dropzone {% if recipe.image_path %}compact{% endif %}" id="image-dropzone"
+             ondragover="event.preventDefault(); this.classList.add('dragover')"
+             ondragleave="this.classList.remove('dragover')"
+             ondrop="handleImageDrop(event, {{ recipe.id }})">
+            <span class="dropzone-text">
+                {% if recipe.image_path %}Byt bild:{% else %}Lägg till bild:{% endif %}
+            </span>
+            <label class="btn btn-secondary btn-sm dropzone-btn">
+                Välj bild / Ta foto
+                <input type="file" accept="image/*" hidden
+                       onchange="handleImageSelect(this, {{ recipe.id }})">
+            </label>
+        </div>
     </div>
-    {% else %}
-    <!-- Visa dropzone bara om ingen bild finns -->
-    <div class="image-dropzone" id="image-dropzone"
-         ondragover="event.preventDefault(); this.classList.add('dragover')"
-         ondragleave="this.classList.remove('dragover')"
-         ondrop="handleImageDrop(event, {{ recipe.id }})">
-        <span class="dropzone-text">Dra en bild hit eller</span>
-        <label class="btn btn-secondary btn-sm dropzone-btn">
-            Välj bild / Ta foto
-            <input type="file" accept="image/*" hidden
-                   onchange="handleImageSelect(this, {{ recipe.id }})">
-        </label>
-    </div>
-    {% endif %}
 
     {% if recipe.source_link %}
     <div class="detail-source">

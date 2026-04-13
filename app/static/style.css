@@ -1151,6 +1151,10 @@ h3 {
     border-radius: var(--radius);
 }
 
+.recipe-image-section {
+    margin: 1rem 0;
+}
+
 .image-dropzone {
     border: 2px dashed var(--border);
     border-radius: var(--radius);
@@ -1159,6 +1163,15 @@ h3 {
     margin: 0.75rem 0;
     transition: all 0.2s;
     cursor: default;
+}
+
+.image-dropzone.compact {
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+    border-width: 1px;
 }
 
 .image-dropzone.dragover {

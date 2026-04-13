@@ -14,6 +14,7 @@ from app.scraper import extract_recipe_from_url
 from app.tags import PREDEFINED_TAGS
 from app.ica_deals import fetch_ica_deals, save_deals_to_db
 from app.auth import verify_credentials
+from app.image_utils import fix_orientation
 
 app = FastAPI(title="Recept & Inköp", dependencies=[Depends(verify_credentials)])
 
@@ -327,6 +328,9 @@ async def api_upload_image(recipe_id: int, file: UploadFile = File(...),
     content = await file.read()
     if len(content) > MAX_UPLOAD_SIZE:
         return JSONResponse({"error": "Filen är för stor. Max 10 MB."}, status_code=413)
+    content = fix_orientation(content)
+    filename = f"{recipe_id}_{uuid.uuid4().hex[:8]}.jpg"  # Alltid JPEG efter rotation
+    filepath = os.path.join(IMAGES_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(content)
 
@@ -358,6 +362,9 @@ async def api_upload_image_new(file: UploadFile = File(...)):
     content = await file.read()
     if len(content) > MAX_UPLOAD_SIZE:
         return JSONResponse({"error": "Filen är för stor. Max 10 MB."}, status_code=413)
+    content = fix_orientation(content)
+    filename = f"new_{uuid.uuid4().hex[:8]}.jpg"
+    filepath = os.path.join(IMAGES_DIR, filename)
     with open(filepath, "wb") as f:
         f.write(content)
 
@@ -663,3 +670,27 @@ def clear_shopping(db: Session = Depends(get_db)):
 def htmx_remove_item(item_id: int, db: Session = Depends(get_db)):
     crud.remove_shopping_item(db, item_id)
     return HTMLResponse("")
+
+@app.post("/admin/upload-db")
+async def admin_upload_db(file: UploadFile = File(...)):
+    from app.database import DB_PATH
+    content = await file.read()
+    with open(DB_PATH, "wb") as f:
+        f.write(content)
+    return {"status": "ok", "size": len(content)}
+
+@app.post("/admin/upload-archive")
+async def admin_upload_archive(file: UploadFile = File(...)):
+    import zipfile, io as iom
+    content = await file.read()
+    zf = zipfile.ZipFile(iom.BytesIO(content))
+    extracted = 0
+    for name in zf.namelist():
+        if name.endswith("/"):
+            continue
+        target = os.path.join(DATA_DIR, name)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as f:
+            f.write(zf.read(name))
+        extracted += 1
+    return {"status": "ok", "extracted": extracted}

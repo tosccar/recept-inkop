@@ -28,10 +28,7 @@
         <tbody>
             {% for recipe in recipes %}
             <tr onclick="window.location='/recipe/{{ recipe.id }}'" class="clickable-row">
-                <td class="recipe-name-cell">
-                    {{ recipe.name }}
-                    {% if recipe.image_path %}<span class="has-image-dot" title="Har bild"></span>{% endif %}
-                </td>
+                <td class="recipe-name-cell">{{ recipe.name }}</td>
                 <td>
                     {% if recipe.category %}
                     <span class="badge category clickable-badge"
