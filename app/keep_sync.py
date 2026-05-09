@@ -10,8 +10,9 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 PROJECT_DIR = Path(__file__).parent.parent
-CREDENTIALS_FILE = PROJECT_DIR / "credentials.json"
-TOKEN_FILE = PROJECT_DIR / "keep_token.json"
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(PROJECT_DIR)))
+CREDENTIALS_FILE = DATA_DIR / "credentials.json"
+TOKEN_FILE = DATA_DIR / "keep_token.json"
 KEEP_LIST_TITLE = "Inköpslistan"
 
 _keep = None

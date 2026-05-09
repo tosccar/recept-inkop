@@ -12,3 +12,4 @@ anthropic
 python-docx
 PyMuPDF
 Pillow
+gkeepapi
