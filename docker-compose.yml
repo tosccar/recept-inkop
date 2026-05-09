@@ -17,7 +17,7 @@ services:
     networks:
       - web
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/"]
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(3); s.connect(('127.0.0.1',8080)); s.close()"]
       interval: 30s
       timeout: 5s
       retries: 3
