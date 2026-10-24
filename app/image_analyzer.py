@@ -51,10 +51,10 @@ def analyze_with_claude(image_data: bytes, content_type: str = "image/jpeg") -> 
 
     try:
         import anthropic
+        from app.claude_client import claude_request_kwargs, response_text
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            **claude_request_kwargs(),
             messages=[{
                 "role": "user",
                 "content": [
@@ -63,6 +63,7 @@ def analyze_with_claude(image_data: bytes, content_type: str = "image/jpeg") -> 
                 ],
             }],
         )
+        text = response_text(msg)
     except Exception as e:
         err = str(e)
         if "credit balance" in err:
@@ -70,7 +71,6 @@ def analyze_with_claude(image_data: bytes, content_type: str = "image/jpeg") -> 
         logger.error(f"Claude API-fel: {e}")
         return None
 
-    text = msg.content[0].text.strip()
     return _parse_json_response(text)
 
 

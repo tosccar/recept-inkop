@@ -93,6 +93,7 @@ def generate_ai_matches(db) -> int:
 def _ask_claude_for_matches(api_key: str, ingredients: list[str], deals: list[str]) -> list[dict]:
     """Frågar Claude vilka ingredienser som matchar vilka erbjudanden."""
     import anthropic
+    from app.claude_client import claude_request_kwargs, response_text
 
     # Begränsa storlek
     ing_text = "\n".join(f"- {i}" for i in ingredients[:200])
@@ -125,12 +126,11 @@ ERBJUDANDEN:
     try:
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            **claude_request_kwargs(),
             messages=[{"role": "user", "content": prompt}],
         )
 
-        response = msg.content[0].text.strip()
+        response = response_text(msg)
 
         # Parsa JSON
         if "```" in response:

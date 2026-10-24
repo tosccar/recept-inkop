@@ -21,6 +21,7 @@ import fitz
 from app.file_importer import extract_text_from_file, guess_category_from_folder, get_recipe_name_from_file, convert_to_pdf
 from app.database import SessionLocal, init_db
 from app import crud
+from app.claude_client import claude_request_kwargs, response_text
 
 SUPPORTED_EXT = {".pdf", ".doc", ".docx", ".txt", ".jpg", ".jpeg", ".png"}
 SKIP_FOLDERS = {"0 dieter kostinformation", "fitness fight", ".appledouble"}
@@ -69,11 +70,10 @@ Text:
     try:
         client = anthropic.Anthropic()
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            **claude_request_kwargs(),
             messages=[{"role": "user", "content": prompt}],
         )
-        return _parse_json_response(msg.content[0].text)
+        return _parse_json_response(response_text(msg))
     except Exception as e:
         print(f"  Claude-fel: {e}")
     return None
@@ -130,8 +130,7 @@ Skriv allt pa svenska med korrekt anvandning av a, a, o. BARA JSON."""
     try:
         client = anthropic.Anthropic()
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            **claude_request_kwargs(),
             messages=[{
                 "role": "user",
                 "content": [
@@ -140,7 +139,7 @@ Skriv allt pa svenska med korrekt anvandning av a, a, o. BARA JSON."""
                 ],
             }],
         )
-        return _parse_json_response(msg.content[0].text)
+        return _parse_json_response(response_text(msg))
     except Exception as e:
         print(f"  Claude Vision-fel: {e}")
     return None

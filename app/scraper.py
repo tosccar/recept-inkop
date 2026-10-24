@@ -509,10 +509,10 @@ def _claude_fallback_extract(html: str, url: str) -> dict | None:
 
     try:
         import anthropic
+        from app.claude_client import claude_request_kwargs, response_text
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            **claude_request_kwargs(),
             messages=[{
                 "role": "user",
                 "content": f"""Extrahera receptet från denna webbsidetext. Returnera BARA JSON:
@@ -532,7 +532,7 @@ Text från {url}:
             }],
         )
 
-        response = msg.content[0].text.strip()
+        response = response_text(msg)
         if "```" in response:
             lines = [l for l in response.split("\n") if not l.strip().startswith("```")]
             response = "\n".join(lines).strip()
