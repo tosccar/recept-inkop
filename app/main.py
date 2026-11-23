@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import os
 import json
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from app.database import get_db, init_db
@@ -17,7 +18,15 @@ from app.auth import verify_credentials
 from app.image_utils import fix_orientation
 from app.deal_matcher import get_all_ai_matches
 
-app = FastAPI(title="Recept & Inköp", dependencies=[Depends(verify_credentials)])
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Skapar databastabeller vid start (ersätter on_event, som Starlette 1.0 tog bort)."""
+    init_db()
+    yield
+
+
+app = FastAPI(title="Recept & Inköp", dependencies=[Depends(verify_credentials)],
+              lifespan=lifespan)
 
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -35,14 +44,6 @@ app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 
-@app.on_event("startup")
-def startup():
-    init_db()
-
-
-
-
-
 # --- Startsida ---
 
 @app.get("/", response_class=HTMLResponse)
@@ -52,8 +53,7 @@ def index(request: Request, search: str = "", category: str = "",
     recipes = crud.get_recipes(db, search=search, category=category, tag=tag, sort=sort)
     total = crud.count_recipes(db)
     categories = crud.get_categories(db)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "recipes": recipes,
         "total": total,
         "categories": categories,
@@ -73,8 +73,7 @@ def htmx_recipes(request: Request, search: str = "", category: str = "",
                  db: Session = Depends(get_db)):
     recipes = crud.get_recipes(db, search=search, category=category, tag=tag, sort=sort)
     total = crud.count_recipes(db)
-    return templates.TemplateResponse("_recipe_list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_recipe_list.html", {
         "recipes": recipes,
         "total": total,
         "selected_sort": sort,
@@ -161,8 +160,7 @@ def api_structure_recipe(ocr_text: str = Form(...)):
 
 @app.get("/add", response_class=HTMLResponse)
 def add_form(request: Request):
-    return templates.TemplateResponse("add.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "add.html", {
         "predefined_tags": PREDEFINED_TAGS,
     })
 
@@ -204,8 +202,7 @@ def detail(request: Request, recipe_id: int, db: Session = Depends(get_db)):
     recipe = crud.get_recipe(db, recipe_id)
     if not recipe:
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse("detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "detail.html", {
         "recipe": recipe,
     })
 
@@ -230,8 +227,7 @@ def edit_form(request: Request, recipe_id: int, db: Session = Depends(get_db)):
     recipe = crud.get_recipe(db, recipe_id)
     if not recipe:
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse("edit.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "edit.html", {
         "recipe": recipe,
         "predefined_tags": PREDEFINED_TAGS,
     })
@@ -415,8 +411,7 @@ def suggestions_page(request: Request, db: Session = Depends(get_db)):
     current = crud.get_suggestions(db, year=year, week=week)
     history = crud.get_all_suggestions(db, limit=20)
     profile = crud.get_taste_profile(db)
-    return templates.TemplateResponse("suggestions.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "suggestions.html", {
         "current_suggestions": current,
         "history": history,
         "profile": profile,
@@ -476,8 +471,7 @@ def deals_page(request: Request, db: Session = Depends(get_db)):
     year, week, _ = now.isocalendar()
     deals = crud.get_current_deals(db)
     matches = crud.match_recipes_to_deals(db)
-    return templates.TemplateResponse("deals.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "deals.html", {
         "deals": deals,
         "matches": matches,
         "week": week,
@@ -596,8 +590,7 @@ def menu_page(request: Request, db: Session = Depends(get_db)):
     ai_matches = get_all_ai_matches(db)
     # Bygg ingredient->deal matchning per slot (text + AI)
     slot_deals = _build_slot_deals(slots, deal_map, ai_matches)
-    return templates.TemplateResponse("menu.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "menu.html", {
         "slots": slots,
         "week": week,
         "year": year,
@@ -632,8 +625,7 @@ def htmx_reroll(request: Request, slot_id: int, db: Session = Depends(get_db)):
     slot = crud.reroll_slot(db, slot_id)
     if not slot:
         return HTMLResponse("")
-    return templates.TemplateResponse("_menu_card.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_menu_card.html", {
         "slot": slot,
         "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db), get_all_ai_matches(db)),
     })
@@ -647,8 +639,7 @@ def htmx_update_servings(request: Request, slot_id: int,
     slot = crud.update_slot_servings(db, slot_id, servings)
     if not slot:
         return HTMLResponse("")
-    return templates.TemplateResponse("_menu_card.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_menu_card.html", {
         "slot": slot,
         "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db), get_all_ai_matches(db)),
     })
@@ -661,8 +652,7 @@ def htmx_add_to_list(request: Request, slot_id: int, db: Session = Depends(get_d
     slot = db.query(MenuSlot).filter(MenuSlot.id == slot_id).first()
     if slot:
         crud.add_recipe_to_shopping_list(db, slot.recipe_id, slot.servings)
-    return templates.TemplateResponse("_menu_card.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_menu_card.html", {
         "slot": slot,
         "just_added": True,
         "slot_deals": _build_slot_deals([slot], crud.get_ingredient_deal_map(db), get_all_ai_matches(db)),
@@ -685,8 +675,7 @@ def shopping_list_page(request: Request, db: Session = Depends(get_db)):
             groups[key] = []
         groups[key].append(item)
 
-    return templates.TemplateResponse("shopping_list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "shopping_list.html", {
         "groups": groups,
         "total_items": len(items),
         "checked_items": sum(1 for i in items if i.checked),
@@ -701,8 +690,7 @@ def htmx_toggle_item(request: Request, item_id: int, db: Session = Depends(get_d
     item = crud.toggle_shopping_item(db, item_id)
     if not item:
         return HTMLResponse("")
-    return templates.TemplateResponse("_shopping_item.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "_shopping_item.html", {
         "item": item,
     })
 

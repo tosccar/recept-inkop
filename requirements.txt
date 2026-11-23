@@ -1,9 +1,11 @@
 # Versioner låsta 2026-10-24 efter fungerande container på No Ack.
 # Olåsta versioner drog in onnxruntime/numpy och fick servern (1 GB RAM) att hänga sig vid bygge.
-fastapi==0.115.6
+# 2026-11-23: fastapi, python-multipart och Pillow lyfta för att rätta HIGH/CRITICAL-fynd från Trivy.
+# Valda versioner: senaste utgåva som legat ute minst en vecka.
+fastapi==0.162.7
 uvicorn[standard]==0.34.0
 jinja2==3.1.4
-python-multipart==0.0.18
+python-multipart==0.0.34
 python-dotenv==1.0.1
 sqlalchemy==2.0.36
 aiosqlite==0.20.0
@@ -13,5 +15,9 @@ requests==2.33.1
 anthropic==0.100.0
 python-docx==1.2.0
 PyMuPDF==1.27.2.3
-Pillow==12.2.0
+Pillow==13.0.0
 gkeepapi==0.17.1
+
+# Indirekta beroenden, låsta för att säkerhetsrättningarna inte ska falla bort.
+starlette==1.10.0     # via fastapi (Trivy: rättad i 1.3.1)
+soupsieve==4.1.1      # via recipe-scrapers/beautifulsoup4 (Trivy: rättad i 4.0.0)
