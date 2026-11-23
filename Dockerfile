@@ -10,7 +10,12 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Installera med en aktuell pip och ta sedan bort pip ur imagen. Appen behöver inte
+# pip när den körs, och basimagens pip (och pips inbyggda kopia av setuptools-delar)
+# ger annars sårbarhetsfynd. Tester körs med `python -m ensurepip` i en tillfällig container.
+RUN pip install --no-cache-dir --root-user-action=ignore pip==26.3 \
+    && pip install --no-cache-dir --root-user-action=ignore -r requirements.txt \
+    && pip uninstall -y --root-user-action=ignore pip
 
 COPY app/ app/
 COPY upload_temp/ /tmp/upload_temp/

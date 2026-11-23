@@ -1,16 +1,17 @@
 # Versioner låsta 2026-10-24 efter fungerande container på No Ack.
 # Olåsta versioner drog in onnxruntime/numpy och fick servern (1 GB RAM) att hänga sig vid bygge.
 # 2026-11-23: fastapi, python-multipart och Pillow lyfta för att rätta HIGH/CRITICAL-fynd från Trivy.
+# Därefter jinja2, python-dotenv och fpdf2 för MEDIUM-fynden (fpdf2 inom 2.8-serien).
 # Valda versioner: senaste utgåva som legat ute minst en vecka.
 fastapi==0.162.7
 uvicorn[standard]==0.34.0
-jinja2==3.1.4
+jinja2==3.1.6
 python-multipart==0.0.34
-python-dotenv==1.0.1
+python-dotenv==1.2.4
 sqlalchemy==2.0.36
 aiosqlite==0.20.0
 recipe-scrapers==15.11.0
-fpdf2==2.8.3
+fpdf2==2.8.9
 requests==2.33.1
 anthropic==0.100.0
 python-docx==1.2.0

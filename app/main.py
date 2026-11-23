@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request, Depends, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 import os
@@ -14,7 +13,7 @@ from app import crud
 from app.scraper import extract_recipe_from_url
 from app.tags import PREDEFINED_TAGS
 from app.ica_deals import fetch_ica_deals, save_deals_to_db
-from app.auth import verify_credentials
+from app.auth import verify_credentials, ProtectedStaticFiles
 from app.image_utils import fix_orientation
 from app.deal_matcher import get_all_ai_matches
 
@@ -39,8 +38,8 @@ os.makedirs(IMAGES_DIR, exist_ok=True)
 PDF_DIR = os.path.join(DATA_DIR, "recipes_pdf")
 os.makedirs(PDF_DIR, exist_ok=True)
 
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
+app.mount("/static", ProtectedStaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+app.mount("/images", ProtectedStaticFiles(directory=IMAGES_DIR), name="images")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 

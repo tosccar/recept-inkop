@@ -8,8 +8,10 @@ Täcker det som berörs av beroendeuppdateringar: inloggning, sidmallar
 Kör i samma miljö som produktion (Docker-imagen), från projektmappen:
 
     docker build -t recept-inkop:test .
-    docker run --rm -v "$PWD/tests:/app/tests:ro" -v "$PWD/requirements-dev.txt:/app/requirements-dev.txt:ro" \
-        recept-inkop:test sh -c "pip install -q pytest==9.2.0 httpx==0.28.1 && python -m pytest -q tests"
+    docker run --rm -v "$PWD/tests:/app/tests:ro" recept-inkop:test sh -c \
+        "python -m ensurepip >/dev/null && python -m pip install -q pytest==9.2.0 httpx==0.28.1 && python -m pytest -q tests"
+
+Imagen saknar pip (tas bort i Dockerfile), därför `ensurepip` i den tillfälliga testcontainern.
 """
 import io
 import json
@@ -48,6 +50,17 @@ def test_static_files_served(client):
     resp = client.get("/static/style.css")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/css")
+
+
+@pytest.mark.parametrize("path", [
+    "/static/style.css",
+    "/images/finns-inte.jpg",  # 401 och inte 404: avslöjar inte vilka filer som finns
+])
+def test_file_folders_require_login(anon_client, path):
+    resp = anon_client.get(path)
+    assert resp.status_code == 401
+    assert resp.headers["www-authenticate"] == "Basic"
+    assert anon_client.get(path, auth=("testanvandare", "fel")).status_code == 401
 
 
 # --- Sidor ---
@@ -113,7 +126,7 @@ def test_delete_recipe(client, make_recipe):
 
 # --- Bilder (python-multipart + Pillow) ---
 
-def test_upload_image_applies_exif_rotation_and_rotate(client, make_recipe, data_dir):
+def test_upload_image_applies_exif_rotation_and_rotate(client, anon_client, make_recipe, data_dir):
     rid = make_recipe(name="Bildrecept")
     # Orientation 6 = ska roteras 90 grader, 40x20 blir 20x40.
     files = {"file": ("foto.jpg", _jpeg_bytes(orientation=6), "image/jpeg")}
@@ -128,6 +141,8 @@ def test_upload_image_applies_exif_rotation_and_rotate(client, make_recipe, data
     served = client.get(image_url)
     assert served.status_code == 200
     assert served.headers["content-type"] == "image/jpeg"
+    # En befintlig receptbild ska inte gå att hämta utan inloggning.
+    assert anon_client.get(image_url).status_code == 401
 
     resp = client.post(f"/api/rotate-image/{rid}")
     assert resp.status_code == 200

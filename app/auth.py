@@ -2,7 +2,9 @@
 import os
 import secrets
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
 from typing import Optional
 
 security = HTTPBasic(auto_error=False)
@@ -37,3 +39,25 @@ def verify_credentials(
             detail="Felaktigt användarnamn eller lösenord",
             headers={"WWW-Authenticate": "Basic"},
         )
+
+
+class ProtectedStaticFiles(StaticFiles):
+    """Filmapp bakom samma inloggning som resten av appen.
+
+    Appens dependencies=[Depends(verify_credentials)] gäller bara vanliga
+    sökvägar, inte monterade filmappar som /static och /images. Utan den här
+    klassen kunde receptbilder hämtas utan lösenord av den som kände till filnamnet.
+    """
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            request = Request(scope, receive)
+            try:
+                verify_credentials(request, await security(request))
+            except HTTPException as exc:
+                response = JSONResponse(
+                    {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers,
+                )
+                await response(scope, receive, send)
+                return
+        await super().__call__(scope, receive, send)
